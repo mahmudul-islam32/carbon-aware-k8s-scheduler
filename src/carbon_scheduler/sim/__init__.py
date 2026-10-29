@@ -7,6 +7,7 @@ from carbon_scheduler.sim.historical import (
     HistoricalDataPoint,
     HistoricalDataStore,
 )
+from carbon_scheduler.sim.plan import PlanResult, plan_job
 from carbon_scheduler.sim.trace import (
     JobTrace,
     SyntheticTraceGenerator,
@@ -23,8 +24,10 @@ __all__ = [
     "HistoricalDataStore",
     "JobResult",
     "JobTrace",
+    "PlanResult",
     "PolicyResult",
     "SyntheticTraceGenerator",
     "TraceJob",
     "parse_slack_range",
+    "plan_job",
 ]

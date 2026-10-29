@@ -55,6 +55,12 @@ spec:
               value: {{ .Values.config.reconcileIntervalSeconds | quote }}
             - name: CARBON_LEADER_ELECTION
               value: {{ .Values.config.leaderElection | quote }}
+            - name: CARBON_FOSSIL_INTENSITY_GCO2_KWH
+              value: {{ .Values.config.fossilIntensityGco2Kwh | quote }}
+            - name: CARBON_WATTS_PER_CPU_CORE
+              value: {{ .Values.config.wattsPerCpuCore | quote }}
+            - name: CARBON_WATTS_PER_GPU
+              value: {{ .Values.config.wattsPerGpu | quote }}
             - name: CARBON_LOG_LEVEL
               value: {{ .Values.config.logLevel | quote }}
             - name: CARBON_LOG_FORMAT

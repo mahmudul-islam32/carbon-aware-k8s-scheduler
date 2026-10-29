@@ -53,7 +53,7 @@ config:
   policy: greenest-window
   # Threshold policy: release when forecast share >= this value
   renewableThresholdPct: 60
-  # Maximum delay for any job beyond its deadline
+  # Maximum time a job may be held after submission ("" or "0" disables the cap)
   maxDelay: "24h"
   # Energy-Charts country code
   gridCountry: "de"
@@ -67,6 +67,11 @@ config:
   reconcileIntervalSeconds: 60
   # Enable leader election for HA deployments
   leaderElection: true
+  # Live CO2 accounting (estimates): intensity of the non-renewable share
+  fossilIntensityGco2Kwh: 400
+  # Estimated power draw per requested CPU core / GPU (watts)
+  wattsPerCpuCore: 10
+  wattsPerGpu: 200
   # Logging level
   logLevel: INFO
   # Log output format: json, console

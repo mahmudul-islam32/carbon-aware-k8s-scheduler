@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 470" width="1200" height="470" role="img" aria-label="Diagram of window selection between submit time and latest start">
+  <rect width="1200" height="470" rx="20" fill="#f8fafc" stroke="#e2e8f0"/>
+  <g font-family="'Segoe UI', Inter, Helvetica, Arial, sans-serif">
+    <text x="40" y="54" font-size="24" font-weight="800" fill="#0f172a">How the greenest window is chosen</text>
+    <text x="40" y="80" font-size="14" fill="#475569">greenest-window slides a runtime-sized window over the forecast and keeps the one with the highest mean renewable share</text>
+    <rect x="40" y="100" width="1120" height="310" rx="16" fill="#ffffff" stroke="#e2e8f0"/>
+    <rect x="758.6" y="148" width="178.3" height="182" fill="#f1f5f9"/>
+    <path d="M 90.0 269.2 L 99.3 268.8 L 108.6 268.4 L 117.9 268.1 L 127.1 267.7 L 136.4 267.4 L 145.7 267.1 L 155.0 266.8 L 164.3 266.5 L 173.6 266.2 L 182.9 266.0 L 192.1 265.8 L 201.4 265.7 L 210.7 265.5 L 220.0 265.5 L 229.3 265.4 L 238.6 265.4 L 247.9 265.3 L 257.1 264.8 L 266.4 264.0 L 275.7 262.9 L 285.0 261.5 L 294.3 259.8 L 303.6 257.8 L 312.9 255.5 L 322.1 253.0 L 331.4 250.3 L 340.7 247.3 L 350.0 244.2 L 359.3 240.9 L 368.6 237.4 L 377.9 233.8 L 387.1 230.2 L 396.4 226.4 L 405.7 222.7 L 415.0 218.9 L 424.3 215.1 L 433.6 211.4 L 442.9 207.8 L 452.1 204.2 L 461.4 200.8 L 470.7 197.6 L 480.0 194.5 L 489.3 191.6 L 498.6 188.9 L 507.9 186.5 L 517.1 184.3 L 526.4 182.5 L 535.7 180.9 L 545.0 179.6 L 554.3 178.6 L 563.6 177.9 L 572.9 177.6 L 582.1 177.5 L 591.4 177.9 L 600.7 178.5 L 610.0 179.5 L 619.3 180.7 L 628.6 182.3 L 637.9 184.2 L 647.1 186.4 L 656.4 188.8 L 665.7 191.5 L 675.0 194.4 L 684.3 197.5 L 693.6 200.8 L 702.9 204.3 L 712.1 207.9 L 721.4 211.6 L 730.7 215.4 L 740.0 219.2 L 749.3 223.1 L 758.6 226.9 L 767.9 230.8 L 777.1 234.5 L 786.4 238.2 L 795.7 241.8 L 805.0 245.2 L 814.3 248.4 L 823.6 251.5 L 832.9 254.3 L 842.1 256.9 L 851.4 259.3 L 860.7 261.3 L 870.0 263.1 L 879.3 264.5 L 888.6 265.7 L 897.9 266.5 L 907.1 267.0 L 916.4 267.3 L 925.7 267.6 L 935.0 268.0 L 944.3 268.4 L 953.6 268.7 L 962.9 269.1 L 972.1 269.5 L 981.4 269.9 L 990.7 270.2 L 1000.0 270.6 L 1009.3 270.9 L 1018.6 271.3 L 1027.9 271.6 L 1037.1 271.9 L 1046.4 272.1 L 1055.7 272.3 L 1065.0 272.5 L 1074.3 272.7 L 1083.6 272.8 L 1092.9 272.9 L 1102.1 273.0 L 1111.4 273.0 L 1120.7 273.0 L 1130.0 272.9 L 1130 330 L 90 330 Z" fill="#22c55e" fill-opacity="0.12"/>
+    <path d="M 90.0 269.2 L 99.3 268.8 L 108.6 268.4 L 117.9 268.1 L 127.1 267.7 L 136.4 267.4 L 145.7 267.1 L 155.0 266.8 L 164.3 266.5 L 173.6 266.2 L 182.9 266.0 L 192.1 265.8 L 201.4 265.7 L 210.7 265.5 L 220.0 265.5 L 229.3 265.4 L 238.6 265.4 L 247.9 265.3 L 257.1 264.8 L 266.4 264.0 L 275.7 262.9 L 285.0 261.5 L 294.3 259.8 L 303.6 257.8 L 312.9 255.5 L 322.1 253.0 L 331.4 250.3 L 340.7 247.3 L 350.0 244.2 L 359.3 240.9 L 368.6 237.4 L 377.9 233.8 L 387.1 230.2 L 396.4 226.4 L 405.7 222.7 L 415.0 218.9 L 424.3 215.1 L 433.6 211.4 L 442.9 207.8 L 452.1 204.2 L 461.4 200.8 L 470.7 197.6 L 480.0 194.5 L 489.3 191.6 L 498.6 188.9 L 507.9 186.5 L 517.1 184.3 L 526.4 182.5 L 535.7 180.9 L 545.0 179.6 L 554.3 178.6 L 563.6 177.9 L 572.9 177.6 L 582.1 177.5 L 591.4 177.9 L 600.7 178.5 L 610.0 179.5 L 619.3 180.7 L 628.6 182.3 L 637.9 184.2 L 647.1 186.4 L 656.4 188.8 L 665.7 191.5 L 675.0 194.4 L 684.3 197.5 L 693.6 200.8 L 702.9 204.3 L 712.1 207.9 L 721.4 211.6 L 730.7 215.4 L 740.0 219.2 L 749.3 223.1 L 758.6 226.9 L 767.9 230.8 L 777.1 234.5 L 786.4 238.2 L 795.7 241.8 L 805.0 245.2 L 814.3 248.4 L 823.6 251.5 L 832.9 254.3 L 842.1 256.9 L 851.4 259.3 L 860.7 261.3 L 870.0 263.1 L 879.3 264.5 L 888.6 265.7 L 897.9 266.5 L 907.1 267.0 L 916.4 267.3 L 925.7 267.6 L 935.0 268.0 L 944.3 268.4 L 953.6 268.7 L 962.9 269.1 L 972.1 269.5 L 981.4 269.9 L 990.7 270.2 L 1000.0 270.6 L 1009.3 270.9 L 1018.6 271.3 L 1027.9 271.6 L 1037.1 271.9 L 1046.4 272.1 L 1055.7 272.3 L 1065.0 272.5 L 1074.3 272.7 L 1083.6 272.8 L 1092.9 272.9 L 1102.1 273.0 L 1111.4 273.0 L 1120.7 273.0 L 1130.0 272.9" fill="none" stroke="#16a34a" stroke-width="3"/>
+    <line x1="90" y1="330" x2="1130" y2="330" stroke="#94a3b8"/>
+    <text x="90.0" y="350" font-size="11.5" fill="#475569" text-anchor="middle">+0h</text>
+    <text x="238.6" y="350" font-size="11.5" fill="#475569" text-anchor="middle">+2h</text>
+    <text x="387.1" y="350" font-size="11.5" fill="#475569" text-anchor="middle">+4h</text>
+    <text x="535.7" y="350" font-size="11.5" fill="#475569" text-anchor="middle">+6h</text>
+    <text x="684.3" y="350" font-size="11.5" fill="#475569" text-anchor="middle">+8h</text>
+    <text x="832.9" y="350" font-size="11.5" fill="#475569" text-anchor="middle">+10h</text>
+    <text x="981.4" y="350" font-size="11.5" fill="#475569" text-anchor="middle">+12h</text>
+    <text x="1130.0" y="350" font-size="11.5" fill="#475569" text-anchor="middle">+14h</text>
+    <rect x="90.0" y="304" width="74.3" height="16" rx="4" fill="#cbd5e1" fill-opacity="0.8"/>
+    <rect x="238.6" y="304" width="74.3" height="16" rx="4" fill="#cbd5e1" fill-opacity="0.8"/>
+    <rect x="387.1" y="304" width="74.3" height="16" rx="4" fill="#cbd5e1" fill-opacity="0.8"/>
+    <rect x="535.7" y="304" width="74.3" height="16" rx="4" fill="#cbd5e1" fill-opacity="0.8"/>
+    <rect x="684.3" y="304" width="74.3" height="16" rx="4" fill="#cbd5e1" fill-opacity="0.8"/>
+    <text x="164.3" y="296" font-size="11.5" fill="#475569" text-anchor="middle">candidate windows</text>
+    <rect x="506.0" y="171.8" width="74.3" height="30" rx="7" fill="#16a34a"/>
+    <text x="543.1" y="191.8" font-size="12" font-weight="800" fill="#ffffff" text-anchor="middle">chosen</text>
+    <text x="543.1" y="161.8" font-size="12" font-weight="700" fill="#15803d" text-anchor="middle">highest mean share</text>
+    <line x1="90.0" y1="148" x2="90.0" y2="330" stroke="#475569" stroke-width="2" stroke-dasharray="5 4"/>
+    <text x="90.0" y="126" font-size="12.5" font-weight="800" fill="#475569" text-anchor="middle">submit</text>
+    <line x1="758.6" y1="148" x2="758.6" y2="330" stroke="#7c3aed" stroke-width="2" stroke-dasharray="5 4"/>
+    <text x="758.6" y="126" font-size="12.5" font-weight="800" fill="#7c3aed" text-anchor="middle">max-delay cap</text>
+    <text x="758.6" y="141" font-size="11" fill="#475569" text-anchor="middle">optional</text>
+    <line x1="936.9" y1="148" x2="936.9" y2="330" stroke="#d97706" stroke-width="2" stroke-dasharray="5 4"/>
+    <text x="936.9" y="126" font-size="12.5" font-weight="800" fill="#d97706" text-anchor="middle">latest start</text>
+    <line x1="1063.1" y1="148" x2="1063.1" y2="330" stroke="#dc2626" stroke-width="2" stroke-dasharray="5 4"/>
+    <text x="1063.1" y="126" font-size="12.5" font-weight="800" fill="#dc2626" text-anchor="middle">deadline</text>
+    <path d="M936.9 374 H1063.1" stroke="#d97706" stroke-width="2"/>
+    <text x="1000.0" y="392" font-size="11.5" fill="#475569" text-anchor="middle">runtime + safety margin</text>
+    <text x="90" y="392" font-size="12" fill="#475569">Search space = [submit, min(latest start, max-delay cap)]. Shaded = excluded by the cap.</text>
+  </g>
+</svg>

@@ -14,6 +14,7 @@ import structlog
 
 from carbon_scheduler.config import (
     ANNOTATION_ACTUAL_START,
+    ANNOTATION_CO2_AVOIDED,
     ANNOTATION_PLANNED_START,
     Settings,
     get_settings,
@@ -22,18 +23,26 @@ from carbon_scheduler.controller.annotations import (
     AnnotationError,
     is_flexible_job,
     parse_annotations,
+    parse_iso8601_datetime,
 )
 from carbon_scheduler.controller.scheduler import JobScheduler
 from carbon_scheduler.grid import EnergyChartsClient
 from carbon_scheduler.metrics.prometheus import (
+    record_co2_avoided,
     record_fallback_release,
     record_job_released,
+    set_ready,
+    track_held_job,
+    untrack_held_job,
 )
 
 logger = structlog.get_logger(__name__)
 
 _scheduler: JobScheduler | None = None
 _settings: Settings | None = None
+
+# Read once at import: kopf needs the timer interval when the handler is registered.
+RELEASE_TIMER_INTERVAL = float(get_settings().reconcile_interval_seconds)
 
 
 def get_scheduler() -> JobScheduler:
@@ -57,8 +66,12 @@ async def emit_event(
     reason: str,
     message: str,
     event_type: str = "Normal",
+    body: Any = None,
 ) -> None:
-    """Emit a Kubernetes Event for a job.
+    """Emit a Kubernetes Event for a job and log it.
+
+    The Event is posted through kopf when the Job body is available and the
+    call happens inside a running operator; otherwise it is only logged.
 
     Args:
         name: Job name
@@ -66,6 +79,7 @@ async def emit_event(
         reason: Event reason code (e.g., JobHeld, JobReleased)
         message: Human-readable event message
         event_type: Event type (Normal or Warning)
+        body: Job body the Event refers to
     """
     logger.info(
         "kubernetes_event",
@@ -75,6 +89,17 @@ async def emit_event(
         message=message,
         event_type=event_type,
     )
+
+    if body is None:
+        return
+
+    try:
+        kopf.event(body, type=event_type, reason=reason, message=message)
+    except LookupError:
+        # Not running inside a kopf operator context (e.g. unit tests or CLI use).
+        pass
+    except Exception as e:  # Events are best-effort and must never block a release
+        logger.warning("kubernetes_event_failed", job_name=name, reason=reason, error=str(e))
 
 
 def should_process_job(spec: dict[str, Any], meta: dict[str, Any]) -> bool:
@@ -99,12 +124,32 @@ def should_process_job(spec: dict[str, Any], meta: dict[str, Any]) -> bool:
     return is_flexible_job(annotations)
 
 
+def _submit_time(meta: dict[str, Any]) -> datetime | None:
+    """Return the Job's creation timestamp, if present and parseable."""
+    created = meta.get("creationTimestamp")
+    if not created:
+        return None
+    try:
+        return parse_iso8601_datetime(str(created))
+    except AnnotationError:
+        return None
+
+
+def _delay_seconds(meta: dict[str, Any], release_time: datetime) -> float | None:
+    """Seconds between Job creation and release, if the creation time is known."""
+    submitted = _submit_time(meta)
+    if submitted is None:
+        return None
+    return max(0.0, (release_time - submitted).total_seconds())
+
+
 async def handle_job_create(
     spec: dict[str, Any],
     meta: dict[str, Any],
     name: str,
     namespace: str,
     patch: dict[str, Any],
+    body: Any = None,
     **_kwargs: Any,
 ) -> dict[str, Any] | None:
     """Handle job creation events.
@@ -117,6 +162,7 @@ async def handle_job_create(
         name: Job name
         namespace: Job namespace
         patch: Patch object for modifying the job
+        body: Full Job body, used to post Kubernetes Events
 
     Returns:
         Status dict for kopf memo, or None if job is not processed
@@ -130,6 +176,7 @@ async def handle_job_create(
         return None
 
     annotations = meta.get("annotations", {})
+    now = datetime.now(UTC)
 
     try:
         parse_annotations(annotations)
@@ -140,9 +187,15 @@ async def handle_job_create(
             reason="ValidationError",
             message=f"Invalid job annotations: {e}",
             event_type="Warning",
+            body=body,
         )
 
         patch.setdefault("spec", {})["suspend"] = False
+        patch.setdefault("metadata", {}).setdefault("annotations", {})[
+            ANNOTATION_ACTUAL_START
+        ] = now.isoformat()
+        record_fallback_release(namespace, name)
+        record_job_released(namespace, name, adjust_held=False)
 
         logger.warning(
             "job_validation_failed_releasing",
@@ -158,6 +211,7 @@ async def handle_job_create(
         job_name=name,
         job_namespace=namespace,
         annotations=annotations,
+        job_spec=dict(spec),
     )
 
     if decision.annotations_to_set:
@@ -167,6 +221,15 @@ async def handle_job_create(
 
     if decision.should_release:
         patch.setdefault("spec", {})["suspend"] = False
+        patch.setdefault("metadata", {}).setdefault("annotations", {})[
+            ANNOTATION_ACTUAL_START
+        ] = now.isoformat()
+        record_job_released(
+            namespace,
+            name,
+            delay_seconds=_delay_seconds(meta, now),
+            adjust_held=False,
+        )
 
         if decision.is_fallback:
             await emit_event(
@@ -175,6 +238,7 @@ async def handle_job_create(
                 reason="FallbackRelease",
                 message=f"Job released immediately due to: {decision.fallback_reason}",
                 event_type="Warning",
+                body=body,
             )
         else:
             await emit_event(
@@ -182,6 +246,7 @@ async def handle_job_create(
                 namespace=namespace,
                 reason="JobReleased",
                 message=f"Job released for immediate execution (policy: {decision.policy_used})",
+                body=body,
             )
 
         logger.info(
@@ -198,18 +263,16 @@ async def handle_job_create(
             "policy": decision.policy_used,
         }
 
-    await emit_event(
-        name=name,
-        namespace=namespace,
-        reason="JobHeld",
-        message=f"Job held until {decision.planned_start.isoformat() if decision.planned_start else 'unknown'} (policy: {decision.policy_used})",
-    )
+    planned = decision.planned_start.isoformat() if decision.planned_start else "unknown"
+    co2 = decision.annotations_to_set.get(ANNOTATION_CO2_AVOIDED)
+    co2_note = f", est. {co2} gCO2 avoided" if co2 else ""
 
     await emit_event(
         name=name,
         namespace=namespace,
-        reason="JobPlanned",
-        message=f"Planned start: {decision.planned_start.isoformat() if decision.planned_start else 'unknown'}",
+        reason="JobHeld",
+        message=f"Job held until {planned} (policy: {decision.policy_used}{co2_note})",
+        body=body,
     )
 
     logger.info(
@@ -233,12 +296,14 @@ async def handle_job_timer(
     name: str,
     namespace: str,
     patch: dict[str, Any],
+    body: Any = None,
     **_kwargs: Any,
 ) -> dict[str, Any] | None:
     """Periodic timer handler to check if jobs should be released.
 
     This runs every interval (default 60s) to check if held jobs
-    should now be released based on their planned start time.
+    should now be released based on their planned start time. It also
+    rebuilds the held-jobs gauge after a controller restart.
 
     Args:
         spec: Job spec
@@ -246,16 +311,19 @@ async def handle_job_timer(
         name: Job name
         namespace: Job namespace
         patch: Patch object for modifying the job
+        body: Full Job body, used to post Kubernetes Events
 
     Returns:
         Updated status dict, or None if no action taken
     """
-    suspend = spec.get("suspend", False)
-    if not suspend:
-        return None
-
     annotations = meta.get("annotations", {})
     if not is_flexible_job(annotations):
+        return None
+
+    suspend = spec.get("suspend", False)
+    if not suspend:
+        # Released by us earlier or resumed by someone else
+        untrack_held_job(namespace, name)
         return None
 
     try:
@@ -266,81 +334,102 @@ async def handle_job_timer(
     scheduler = get_scheduler()
     current_time = datetime.now(UTC)
 
-    if scheduler.should_release_now(parsed, current_time):
-        patch.setdefault("spec", {})["suspend"] = False
+    if not scheduler.should_release_now(parsed, current_time):
+        if parsed.planned_start is not None:
+            track_held_job(namespace, name)
+        return None
 
-        now_iso = current_time.isoformat()
-        patch.setdefault("metadata", {}).setdefault("annotations", {})[
-            ANNOTATION_ACTUAL_START
-        ] = now_iso
+    patch.setdefault("spec", {})["suspend"] = False
 
-        is_fallback = parsed.planned_start is None or current_time > (
-            parsed.planned_start + timedelta(seconds=60)
-        )
+    now_iso = current_time.isoformat()
+    patch.setdefault("metadata", {}).setdefault("annotations", {})[
+        ANNOTATION_ACTUAL_START
+    ] = now_iso
 
-        if is_fallback:
-            await emit_event(
-                name=name,
-                namespace=namespace,
-                reason="FallbackRelease",
-                message="Job released at deadline safety margin",
-                event_type="Warning",
-            )
-            record_fallback_release(namespace, name)
-        else:
-            await emit_event(
-                name=name,
-                namespace=namespace,
-                reason="JobReleased",
-                message="Job released at planned start time",
-            )
+    is_fallback = parsed.planned_start is None or current_time > (
+        parsed.planned_start + timedelta(seconds=60)
+    )
 
-        record_job_released(namespace, name)
+    untrack_held_job(namespace, name)
+    record_job_released(
+        namespace,
+        name,
+        delay_seconds=_delay_seconds(meta, current_time),
+        adjust_held=False,
+    )
 
-        logger.info(
-            "timer_released_job",
-            job_name=name,
+    if is_fallback:
+        await emit_event(
+            name=name,
             namespace=namespace,
-            planned_start=parsed.planned_start.isoformat() if parsed.planned_start else None,
-            actual_release=now_iso,
-            is_fallback=is_fallback,
+            reason="FallbackRelease",
+            message="Job released at deadline safety margin",
+            event_type="Warning",
+            body=body,
+        )
+        record_fallback_release(namespace, name)
+    else:
+        co2_str = annotations.get(ANNOTATION_CO2_AVOIDED)
+        if co2_str:
+            try:
+                co2 = float(co2_str)
+            except ValueError:
+                co2 = 0.0
+            if co2 > 0:
+                record_co2_avoided(namespace, name, co2)
+        await emit_event(
+            name=name,
+            namespace=namespace,
+            reason="JobReleased",
+            message="Job released at planned start time",
+            body=body,
         )
 
-        return {
-            "released": True,
-            "release_time": now_iso,
-            "fallback": is_fallback,
-        }
+    logger.info(
+        "timer_released_job",
+        job_name=name,
+        namespace=namespace,
+        planned_start=parsed.planned_start.isoformat() if parsed.planned_start else None,
+        actual_release=now_iso,
+        is_fallback=is_fallback,
+    )
 
-    return None
+    return {
+        "released": True,
+        "release_time": now_iso,
+        "fallback": is_fallback,
+    }
 
 
 @kopf.on.create("batch", "v1", "jobs")
 async def on_job_create(
-    spec: dict[str, Any],
-    meta: dict[str, Any],
+    spec: kopf.Spec,
+    meta: kopf.Meta,
     name: str,
-    namespace: str,
+    namespace: str | None,
     patch: kopf.Patch,
+    body: kopf.Body,
     **_kwargs: Any,
 ) -> dict[str, Any] | None:
     """Kopf handler for job creation events."""
     return await handle_job_create(
-        spec=spec,
-        meta=meta,
+        spec=dict(spec),
+        meta=dict(meta),
         name=name,
-        namespace=namespace,
+        namespace=namespace or "default",
         patch=patch,
+        body=body,
     )
 
 
 @kopf.on.update("batch", "v1", "jobs")
 async def on_job_update(
-    spec: dict[str, Any],
-    meta: dict[str, Any],
+    spec: kopf.Spec,
+    meta: kopf.Meta,
     name: str,
-    namespace: str,
+    namespace: str | None,
     patch: kopf.Patch,
+    body: kopf.Body,
     **_kwargs: Any,
 ) -> dict[str, Any] | None:
     """Kopf handler for job update events.
@@ -348,40 +437,45 @@ async def on_job_update(
     This handles the case where a job is created without being suspended,
     then later gets suspended with the flexible annotation.
     """
-    if not should_process_job(spec, meta):
+    spec_dict = dict(spec)
+    meta_dict = dict(meta)
+    if not should_process_job(spec_dict, meta_dict):
         return None
 
-    annotations = meta.get("annotations", {})
+    annotations = meta_dict.get("annotations", {})
     planned_start_str = annotations.get(ANNOTATION_PLANNED_START)
 
     if planned_start_str:
         return None
 
     return await handle_job_create(
-        spec=spec,
-        meta=meta,
+        spec=spec_dict,
+        meta=meta_dict,
         name=name,
-        namespace=namespace,
+        namespace=namespace or "default",
         patch=patch,
+        body=body,
     )
 
 
-@kopf.timer("batch", "v1", "jobs", interval=60.0)
+@kopf.timer("batch", "v1", "jobs", interval=RELEASE_TIMER_INTERVAL)
 async def check_release_timer(
-    spec: dict[str, Any],
-    meta: dict[str, Any],
+    spec: kopf.Spec,
+    meta: kopf.Meta,
     name: str,
-    namespace: str,
+    namespace: str | None,
     patch: kopf.Patch,
+    body: kopf.Body,
     **_kwargs: Any,
 ) -> dict[str, Any] | None:
     """Kopf timer handler to check for job release."""
     return await handle_job_timer(
-        spec=spec,
-        meta=meta,
+        spec=dict(spec),
+        meta=dict(meta),
         name=name,
-        namespace=namespace,
+        namespace=namespace or "default",
         patch=patch,
+        body=body,
     )
 
 
@@ -396,6 +490,7 @@ async def on_startup(**_kwargs: Any) -> None:
         grid_country=settings.grid_country,
         safety_margin_minutes=settings.deadline_safety_margin_minutes,
         reconcile_interval_seconds=settings.reconcile_interval_seconds,
+        max_delay=settings.max_delay,
     )
 
     scheduler = get_scheduler()
@@ -403,9 +498,13 @@ async def on_startup(**_kwargs: Any) -> None:
     grid_client = EnergyChartsClient(
         base_url=settings.grid_api_base_url,
         country=settings.grid_country,
+        cache_ttl=settings.forecast_refresh_minutes * 60,
     )
+    # Open the HTTP session; without it every fetch fails and all jobs fall back.
+    await grid_client.__aenter__()
 
     scheduler.grid_client = grid_client
+    set_ready(True)
 
     logger.info("controller_initialized")
 
@@ -415,8 +514,11 @@ async def on_cleanup(**_kwargs: Any) -> None:
     """Kopf cleanup handler to shut down gracefully."""
     global _scheduler
 
+    set_ready(False)
+
     if _scheduler and _scheduler.grid_client:
         logger.info("closing_grid_client")
+        await _scheduler.grid_client.__aexit__(None, None, None)
 
     _scheduler = None
     logger.info("controller_stopped")

@@ -11,8 +11,12 @@ from typing import Any
 
 import structlog
 
+from carbon_scheduler.carbon.live import estimate_avoided_emissions, extract_job_resources
 from carbon_scheduler.config import (
+    ANNOTATION_CO2_AVOIDED,
+    ANNOTATION_EXPECTED_RENEWABLE_SHARE,
     ANNOTATION_FALLBACK_REASON,
+    ANNOTATION_LATEST_START,
     ANNOTATION_PLANNED_START,
     ANNOTATION_POLICY_USED,
     Settings,
@@ -22,11 +26,15 @@ from carbon_scheduler.controller.annotations import (
     AnnotationError,
     ParsedAnnotations,
     parse_annotations,
+    parse_duration,
 )
 from carbon_scheduler.grid import EnergyChartsClient, EnergyChartsError, GridData
 from carbon_scheduler.metrics.prometheus import (
     record_fallback_release,
-    record_job_held,
+    record_planned_co2_avoided,
+    track_held_job,
+    update_forecast_age,
+    update_renewable_share,
 )
 from carbon_scheduler.planner.models import Forecast, ForecastPoint, JobInfo, PolicyConfig
 from carbon_scheduler.planner.policies import get_policy
@@ -85,6 +93,9 @@ class ScheduleDecision:
         policy_used: str,
         is_fallback: bool = False,
         fallback_reason: str | None = None,
+        latest_start: datetime | None = None,
+        expected_renewable_share: float | None = None,
+        co2_avoided_grams: float | None = None,
     ) -> "ScheduleDecision":
         """Create a decision to hold the job until the planned start."""
         annotations: dict[str, str] = {
@@ -93,6 +104,12 @@ class ScheduleDecision:
         }
         if fallback_reason:
             annotations[ANNOTATION_FALLBACK_REASON] = fallback_reason
+        if latest_start is not None:
+            annotations[ANNOTATION_LATEST_START] = latest_start.isoformat()
+        if expected_renewable_share is not None:
+            annotations[ANNOTATION_EXPECTED_RENEWABLE_SHARE] = f"{expected_renewable_share:.1f}"
+        if co2_avoided_grams is not None:
+            annotations[ANNOTATION_CO2_AVOIDED] = f"{co2_avoided_grams:.2f}"
 
         return cls(
             should_release=False,
@@ -128,6 +145,27 @@ class JobScheduler:
     def grid_client(self, client: EnergyChartsClient) -> None:
         """Set the grid client."""
         self._grid_client = client
+
+    def _global_max_delay(self) -> timedelta | None:
+        """Parse the global max-delay setting; None disables the cap."""
+        raw = (self.settings.max_delay or "").strip()
+        if not raw or raw in ("0", "none", "off"):
+            return None
+        try:
+            return parse_duration(raw)
+        except AnnotationError:
+            logger.warning("invalid_max_delay_setting", value=raw)
+            return None
+
+    def _record_grid_gauges(self, grid_data: GridData, current_time: datetime) -> None:
+        """Expose the current renewable share and forecast age as metrics."""
+        share = grid_data.get_renewable_share_at(int(current_time.timestamp()))
+        if share is not None:
+            update_renewable_share(share)
+        fetched_at = grid_data.fetched_at
+        if fetched_at.tzinfo is None:
+            fetched_at = fetched_at.astimezone(UTC)
+        update_forecast_age(max(0.0, (current_time - fetched_at).total_seconds()))
 
     def _grid_data_to_forecast(self, grid_data: GridData | None) -> Forecast | None:
         """Convert GridData to Forecast for the planner."""
@@ -174,6 +212,7 @@ class JobScheduler:
         job_namespace: str,
         annotations: dict[str, Any],
         current_time: datetime | None = None,
+        job_spec: dict[str, Any] | None = None,
     ) -> ScheduleDecision:
         """Calculate the scheduling decision for a job.
 
@@ -182,6 +221,7 @@ class JobScheduler:
             job_namespace: Namespace of the job
             annotations: Job annotations
             current_time: Current time (defaults to now)
+            job_spec: Job spec, used to estimate energy from resource requests
 
         Returns:
             ScheduleDecision with the scheduling plan
@@ -204,15 +244,31 @@ class JobScheduler:
                 fallback_reason=f"validation_error: {e}",
             )
 
+        policy_name = parsed.policy_override or self.settings.policy
+        threshold_pct = (
+            parsed.renewable_threshold_override
+            if parsed.renewable_threshold_override is not None
+            else self.settings.renewable_threshold_pct
+        )
+
+        safety_margin = timedelta(minutes=self.settings.deadline_safety_margin_minutes)
+
+        # A max-delay cap tightens the planning horizon: the job must start no later
+        # than submit + max_delay, which is modelled as an earlier effective deadline.
+        effective_deadline = parsed.deadline
+        max_delay = parsed.max_delay or self._global_max_delay()
+        if max_delay is not None:
+            capped = current_time + max_delay + parsed.estimated_runtime + safety_margin
+            effective_deadline = min(effective_deadline, capped)
+
         job_info = JobInfo(
             name=job_name,
             namespace=job_namespace,
             submit_time=current_time,
-            deadline=parsed.deadline,
+            deadline=effective_deadline,
             estimated_runtime=parsed.estimated_runtime,
         )
 
-        safety_margin = timedelta(minutes=self.settings.deadline_safety_margin_minutes)
         latest_feasible_start = job_info.latest_feasible_start(safety_margin)
 
         if current_time >= latest_feasible_start:
@@ -223,7 +279,7 @@ class JobScheduler:
                 latest_feasible_start=latest_feasible_start.isoformat(),
             )
             return ScheduleDecision.release_now(
-                policy_used=self.settings.policy,
+                policy_used=policy_name,
                 is_fallback=True,
                 fallback_reason="current_time_past_latest_feasible_start",
             )
@@ -238,11 +294,12 @@ class JobScheduler:
             )
             record_fallback_release(job_namespace, job_name)
             return ScheduleDecision.release_now(
-                policy_used=self.settings.policy,
+                policy_used=policy_name,
                 is_fallback=True,
                 fallback_reason="grid_data_unavailable",
             )
 
+        self._record_grid_gauges(grid_data, current_time)
         forecast = self._grid_data_to_forecast(grid_data)
 
         if forecast is None or grid_data.is_degraded:
@@ -254,15 +311,15 @@ class JobScheduler:
             )
             record_fallback_release(job_namespace, job_name)
             return ScheduleDecision.release_now(
-                policy_used=self.settings.policy,
+                policy_used=policy_name,
                 is_fallback=True,
                 fallback_reason="forecast_data_degraded" if grid_data.is_degraded else "no_forecast_data",
             )
 
         policy = get_policy(
-            self.settings.policy,
+            policy_name,  # type: ignore[arg-type]  # validated by parse_annotations/Settings
             config=self._policy_config,
-            threshold_pct=self.settings.renewable_threshold_pct,
+            threshold_pct=threshold_pct,
         )
 
         window = policy.select(job_info, forecast, current_time)
@@ -272,7 +329,7 @@ class JobScheduler:
                 "policy_returned_fallback",
                 job_name=job_name,
                 namespace=job_namespace,
-                policy=self.settings.policy,
+                policy=policy_name,
                 fallback_reason=window.fallback_reason,
             )
             record_fallback_release(job_namespace, job_name)
@@ -288,20 +345,38 @@ class JobScheduler:
                 is_fallback=False,
             )
 
+        avoided = estimate_avoided_emissions(
+            forecast=forecast,
+            submit_time=current_time,
+            planned_start=window.start,
+            runtime=parsed.estimated_runtime,
+            resources=extract_job_resources(job_spec),
+            fossil_intensity_gco2_kwh=self.settings.fossil_intensity_gco2_kwh,
+            watts_per_cpu_core=self.settings.watts_per_cpu_core,
+            watts_per_gpu=self.settings.watts_per_gpu,
+        )
+
         logger.info(
             "job_scheduled",
             job_name=job_name,
             namespace=job_namespace,
             planned_start=window.start.isoformat(),
+            latest_start=latest_feasible_start.isoformat(),
             policy=window.policy_used,
             mean_renewable_share=window.mean_renewable_share_pct,
+            estimated_co2_avoided_grams=avoided.avoided_gco2 if avoided else None,
         )
 
-        record_job_held(job_namespace)
+        track_held_job(job_namespace, job_name)
+        if avoided is not None:
+            record_planned_co2_avoided(job_namespace, avoided.avoided_gco2)
 
         return ScheduleDecision.hold_until(
             planned_start=window.start,
             policy_used=window.policy_used,
+            latest_start=latest_feasible_start,
+            expected_renewable_share=window.mean_renewable_share_pct,
+            co2_avoided_grams=avoided.avoided_gco2 if avoided else None,
         )
 
     def should_release_now(
@@ -313,7 +388,8 @@ class JobScheduler:
 
         A job should be released if:
         1. The planned start time has been reached (within 60s tolerance)
-        2. The deadline minus runtime minus safety margin has been reached
+        2. The recorded latest start (deadline or max-delay cap) has been reached
+        3. The deadline minus runtime minus safety margin has been reached
 
         Args:
             parsed: Parsed job annotations
@@ -326,6 +402,9 @@ class JobScheduler:
             current_time = datetime.now(UTC)
 
         if parsed.planned_start is not None and current_time >= parsed.planned_start:
+            return True
+
+        if parsed.latest_start is not None and current_time >= parsed.latest_start:
             return True
 
         safety_margin = timedelta(minutes=self.settings.deadline_safety_margin_minutes)

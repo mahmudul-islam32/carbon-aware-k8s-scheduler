@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" width="1200" height="360" role="img" aria-label="How it works: annotate, forecast, plan, release and measure">
+  <rect width="1200" height="360" rx="20" fill="#f8fafc" stroke="#e2e8f0"/>
+  <g font-family="'Segoe UI', Inter, Helvetica, Arial, sans-serif">
+    <text x="40" y="54" font-size="24" font-weight="800" fill="#0f172a">How it works</text>
+    <text x="40" y="80" font-size="14" fill="#475569">Four steps from kubectl apply to a greener start time</text>
+    <rect x="40" y="110" width="258" height="208" rx="16" fill="#ffffff" stroke="#e2e8f0"/>
+    <rect x="40" y="110" width="258" height="6" rx="3" fill="#16a34a"/>
+    <circle cx="84" cy="160" r="24" fill="#16a34a" fill-opacity="0.12"/>
+    <path d="M73 149 h12 l11 11 l-12 12 l-11 -11 z" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linejoin="round"/><circle cx="79" cy="155" r="2.5" fill="#16a34a"/>
+    <text x="276" y="172" font-size="40" font-weight="800" fill="#16a34a" fill-opacity="0.18" text-anchor="end">1</text>
+    <text x="62" y="212" font-size="18" font-weight="800" fill="#0f172a">Annotate</text>
+    <text x="62" y="238" font-size="13" fill="#475569">Submit a Job with</text>
+    <text x="62" y="256" font-size="13" fill="#475569">suspend: true plus</text>
+    <text x="62" y="274" font-size="13" fill="#475569">flexible, deadline and</text>
+    <text x="62" y="292" font-size="13" fill="#475569">estimated-runtime</text>
+    <path d="M304 205 h22" stroke="#94a3b8" stroke-width="2.5"/><path d="M326 199 l8 6 l-8 6 z" fill="#94a3b8"/>
+    <rect x="334" y="110" width="258" height="208" rx="16" fill="#ffffff" stroke="#e2e8f0"/>
+    <rect x="334" y="110" width="258" height="6" rx="3" fill="#0d9488"/>
+    <circle cx="378" cy="160" r="24" fill="#0d9488" fill-opacity="0.12"/>
+    <circle cx="378" cy="160" r="7" fill="#0d9488"/><line x1="389.0" y1="160.0" x2="394.0" y2="160.0" stroke="#0d9488" stroke-width="2.5" stroke-linecap="round"/><line x1="385.8" y1="167.8" x2="389.3" y2="171.3" stroke="#0d9488" stroke-width="2.5" stroke-linecap="round"/><line x1="378.0" y1="171.0" x2="378.0" y2="176.0" stroke="#0d9488" stroke-width="2.5" stroke-linecap="round"/><line x1="370.2" y1="167.8" x2="366.7" y2="171.3" stroke="#0d9488" stroke-width="2.5" stroke-linecap="round"/><line x1="367.0" y1="160.0" x2="362.0" y2="160.0" stroke="#0d9488" stroke-width="2.5" stroke-linecap="round"/><line x1="370.2" y1="152.2" x2="366.7" y2="148.7" stroke="#0d9488" stroke-width="2.5" stroke-linecap="round"/><line x1="378.0" y1="149.0" x2="378.0" y2="144.0" stroke="#0d9488" stroke-width="2.5" stroke-linecap="round"/><line x1="385.8" y1="152.2" x2="389.3" y2="148.7" stroke="#0d9488" stroke-width="2.5" stroke-linecap="round"/>
+    <text x="570" y="172" font-size="40" font-weight="800" fill="#0d9488" fill-opacity="0.18" text-anchor="end">2</text>
+    <text x="356" y="212" font-size="18" font-weight="800" fill="#0f172a">Forecast</text>
+    <text x="356" y="238" font-size="13" fill="#475569">Fetch the renewable-share</text>
+    <text x="356" y="256" font-size="13" fill="#475569">forecast from Energy-Charts</text>
+    <text x="356" y="274" font-size="13" fill="#475569">(Fraunhofer ISE),</text>
+    <text x="356" y="292" font-size="13" fill="#475569">cached for 30 min</text>
+    <path d="M598 205 h22" stroke="#94a3b8" stroke-width="2.5"/><path d="M620 199 l8 6 l-8 6 z" fill="#94a3b8"/>
+    <rect x="628" y="110" width="258" height="208" rx="16" fill="#ffffff" stroke="#e2e8f0"/>
+    <rect x="628" y="110" width="258" height="6" rx="3" fill="#2563eb"/>
+    <circle cx="672" cy="160" r="24" fill="#2563eb" fill-opacity="0.12"/>
+    <circle cx="672" cy="160" r="13" fill="none" stroke="#2563eb" stroke-width="2.5"/><path d="M672 152 V160 L678 164" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round"/>
+    <text x="864" y="172" font-size="40" font-weight="800" fill="#2563eb" fill-opacity="0.18" text-anchor="end">3</text>
+    <text x="650" y="212" font-size="18" font-weight="800" fill="#0f172a">Plan</text>
+    <text x="650" y="238" font-size="13" fill="#475569">A policy picks the greenest</text>
+    <text x="650" y="256" font-size="13" fill="#475569">window before the latest</text>
+    <text x="650" y="274" font-size="13" fill="#475569">start and annotates the</text>
+    <text x="650" y="292" font-size="13" fill="#475569">plan and est. CO₂ saved</text>
+    <path d="M892 205 h22" stroke="#94a3b8" stroke-width="2.5"/><path d="M914 199 l8 6 l-8 6 z" fill="#94a3b8"/>
+    <rect x="922" y="110" width="258" height="208" rx="16" fill="#ffffff" stroke="#e2e8f0"/>
+    <rect x="922" y="110" width="258" height="6" rx="3" fill="#7c3aed"/>
+    <circle cx="966" cy="160" r="24" fill="#7c3aed" fill-opacity="0.12"/>
+    <path d="M960 150 L976 160 L960 170 z" fill="#7c3aed"/>
+    <text x="1158" y="172" font-size="40" font-weight="800" fill="#7c3aed" fill-opacity="0.18" text-anchor="end">4</text>
+    <text x="944" y="212" font-size="18" font-weight="800" fill="#0f172a">Release &amp; measure</text>
+    <text x="944" y="238" font-size="13" fill="#475569">The timer sets</text>
+    <text x="944" y="256" font-size="13" fill="#475569">suspend: false, posts an</text>
+    <text x="944" y="274" font-size="13" fill="#475569">Event and exports metrics</text>
+    <text x="944" y="292" font-size="13" fill="#475569">to Prometheus/Grafana</text>
+    <text x="40" y="342" font-size="12" fill="#475569">Fail-open: if annotations are invalid or grid data is missing or degraded, the Job is released immediately. Deadlines always win.</text>
+  </g>
+</svg>

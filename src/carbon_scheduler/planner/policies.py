@@ -174,7 +174,10 @@ class ThresholdPolicy(Policy):
         """
         super().__init__(config)
         if threshold_pct is not None:
-            self.config.renewable_threshold_pct = int(threshold_pct)
+            # Copy so an override never leaks into a config shared with other policies
+            self.config = self.config.model_copy(
+                update={"renewable_threshold_pct": int(threshold_pct)}
+            )
 
     def select(
         self,
