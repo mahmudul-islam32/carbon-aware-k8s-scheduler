@@ -177,9 +177,10 @@ async def handle_job_create(
 
     annotations = meta.get("annotations", {})
     now = datetime.now(UTC)
+    created_at = _submit_time(meta)
 
     try:
-        parse_annotations(annotations)
+        parse_annotations(annotations, created_at=created_at or now)
     except AnnotationError as e:
         await emit_event(
             name=name,
@@ -212,6 +213,7 @@ async def handle_job_create(
         job_namespace=namespace,
         annotations=annotations,
         job_spec=dict(spec),
+        created_at=created_at,
     )
 
     if decision.annotations_to_set:
@@ -327,7 +329,7 @@ async def handle_job_timer(
         return None
 
     try:
-        parsed = parse_annotations(annotations)
+        parsed = parse_annotations(annotations, created_at=_submit_time(meta))
     except AnnotationError:
         return None
 

@@ -120,6 +120,8 @@ ANNOTATION_ACTUAL_START = f"{ANNOTATION_PREFIX}/actual-start"
 ANNOTATION_CO2_AVOIDED = f"{ANNOTATION_PREFIX}/co2-avoided-grams"
 ANNOTATION_POLICY_USED = f"{ANNOTATION_PREFIX}/policy-used"
 ANNOTATION_FALLBACK_REASON = f"{ANNOTATION_PREFIX}/fallback-reason"
+# Relative deadline (F-22): resolved against the Job's creationTimestamp
+ANNOTATION_DEADLINE_IN = f"{ANNOTATION_PREFIX}/deadline-in"
 # Optional per-job overrides
 ANNOTATION_POLICY = f"{ANNOTATION_PREFIX}/policy"
 ANNOTATION_RENEWABLE_THRESHOLD = f"{ANNOTATION_PREFIX}/renewable-threshold"
@@ -127,6 +129,9 @@ ANNOTATION_MAX_DELAY = f"{ANNOTATION_PREFIX}/max-delay"
 # Written by the controller
 ANNOTATION_LATEST_START = f"{ANNOTATION_PREFIX}/latest-start"
 ANNOTATION_EXPECTED_RENEWABLE_SHARE = f"{ANNOTATION_PREFIX}/expected-renewable-share"
+# Marks a `deadline` the controller resolved from `deadline-in`
+ANNOTATION_DEADLINE_SOURCE = f"{ANNOTATION_PREFIX}/deadline-source"
+DEADLINE_SOURCE_RELATIVE = "deadline-in"
 
 
 def get_settings() -> Settings:

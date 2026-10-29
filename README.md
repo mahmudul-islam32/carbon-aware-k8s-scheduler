@@ -8,7 +8,7 @@
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
   <img alt="python" src="https://img.shields.io/badge/python-3.12%2B-informational">
   <img alt="kubernetes" src="https://img.shields.io/badge/kubernetes-1.29%2B-326ce5">
-  <img alt="features" src="https://img.shields.io/badge/features-18%20shipped%20%C2%B7%2016%20planned-16a34a">
+  <img alt="features" src="https://img.shields.io/badge/features-19%20shipped%20%C2%B7%2015%20planned-16a34a">
 </p>
 
 A Kubernetes controller, written in Python with [kopf](https://github.com/nolar/kopf), that holds back flexible batch workloads such as ML training and ETL and releases them when the German electricity grid is greenest. It reads the renewable-share forecast from the public [Energy-Charts API](https://api.energy-charts.info/) run by Fraunhofer ISE, picks a start window within each Job's deadline, and estimates how much CO₂ was avoided compared with starting the Job right away. A Grafana dashboard shows the result.
@@ -32,13 +32,14 @@ The carbon intensity of the German grid swings widely over a day as solar and wi
 | 🛟 | **Deadline guarantee and fail-open:** no data, bad data or a tight deadline → release now | ✅ |
 | 🎛️ | **Per-job overrides** for policy, threshold and max delay | 🆕 |
 | ⏱️ | **Max-delay cap** so no Job is parked for days | 🆕 |
+| 🔁 | **Relative deadlines** (`deadline-in`) so every CronJob run gets its own deadline | 🆕 |
 | 🌱 | **Live CO₂ estimate** per Job from its CPU/GPU requests, written as an annotation | 🆕 |
 | 📣 | **Kubernetes Events** visible in `kubectl describe job` | 🔁 |
 | 📈 | **Prometheus metrics, Grafana dashboard, `/healthz` and `/readyz`** | ✅ 🆕 |
 | 🔮 | **`carbon-sim plan`:** dry-run a Job against the live forecast | 🆕 |
 | 🧪 | **`carbon-sim backtest`:** replay months of grid data against a job trace | ✅ |
 | 📦 | **Helm chart** with least-privilege RBAC, ServiceMonitor and dashboard | ✅ |
-| 🗓️ | Relative deadlines, re-planning, admission webhook, HA, KEDA mode and more | [Roadmap](docs/FEATURES.md#backlog) |
+| 🗓️ | Re-planning, admission webhook, HA, KEDA mode and more | [Roadmap](docs/FEATURES.md#backlog) |
 
 👉 The full catalogue with user stories, acceptance criteria and the roadmap is in **[docs/FEATURES.md](docs/FEATURES.md)**.
 
@@ -101,12 +102,14 @@ All keys use the prefix `carbon-scheduler.mahmudul-islam32.github.io/`.
 |---|:---:|---|---|
 | `flexible` | you | `"true"` | Opt in |
 | `deadline` | you | `"2026-11-02T06:00:00+01:00"` | Job must finish by this time (ISO 8601) |
+| `deadline-in` | you | `"6h"` | Instead of `deadline`: finish within this long after the Job's creation (for CronJobs) |
 | `estimated-runtime` | you | `"2h"`, `"1h30m"` | Used to size the window |
 | `policy` | you, optional | `"threshold"` | Override the controller-wide policy |
 | `renewable-threshold` | you, optional | `"70"` | Override the threshold for `threshold` |
 | `max-delay` | you, optional | `"8h"` | Never hold longer than this after submit |
 | `planned-start` | controller | ISO 8601 | When the Job will be released |
 | `latest-start` | controller | ISO 8601 | Release no later than this (deadline or max-delay) |
+| `deadline-source` | controller | `"deadline-in"` | Marks a `deadline` resolved from `deadline-in` |
 | `expected-renewable-share` | controller | `"79.5"` | Mean forecast share in the planned window |
 | `co2-avoided-grams` | controller | `"22.10"` | Estimated CO₂ avoided vs starting now |
 | `policy-used`, `fallback-reason`, `actual-start` | controller | | Audit trail |

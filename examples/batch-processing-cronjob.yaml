@@ -22,8 +22,10 @@ spec:
       annotations:
         # Mark as flexible - will be held until green window
         carbon-scheduler.mahmudul-islam32.github.io/flexible: "true"
-        # Must complete within 12 hours
-        carbon-scheduler.mahmudul-islam32.github.io/deadline: "2026-11-02T12:00:00+01:00"
+        # Must complete within 12 hours of each run's creation (F-22).
+        # An absolute `deadline` would be shared by every run, so CronJobs use a
+        # relative one. The controller writes the resolved value to `deadline`.
+        carbon-scheduler.mahmudul-islam32.github.io/deadline-in: "12h"
         # Usually takes 3 hours
         carbon-scheduler.mahmudul-islam32.github.io/estimated-runtime: "3h"
     spec:

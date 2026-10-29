@@ -2,7 +2,8 @@
 
 This module handles parsing and validation of job annotations according to F-01:
 - Jobs must have the flexible annotation set to "true"
-- Required annotations: deadline (ISO 8601), estimated-runtime (duration string)
+- Required annotations: deadline (ISO 8601) or deadline-in (duration, F-22),
+  and estimated-runtime (duration string)
 - Invalid values cause Warning Events and immediate release (fail-open)
 """
 
@@ -14,6 +15,8 @@ from typing import Any
 
 from carbon_scheduler.config import (
     ANNOTATION_DEADLINE,
+    ANNOTATION_DEADLINE_IN,
+    ANNOTATION_DEADLINE_SOURCE,
     ANNOTATION_ESTIMATED_RUNTIME,
     ANNOTATION_FALLBACK_REASON,
     ANNOTATION_FLEXIBLE,
@@ -23,6 +26,7 @@ from carbon_scheduler.config import (
     ANNOTATION_POLICY,
     ANNOTATION_POLICY_USED,
     ANNOTATION_RENEWABLE_THRESHOLD,
+    DEADLINE_SOURCE_RELATIVE,
 )
 
 VALID_POLICIES = ("immediate", "threshold", "greenest-window")
@@ -50,6 +54,8 @@ class ParsedAnnotations:
     renewable_threshold_override: int | None = None
     max_delay: timedelta | None = None
     latest_start: datetime | None = None
+    deadline_in: timedelta | None = None
+    deadline_resolved_now: bool = False
 
     @property
     def estimated_runtime_seconds(self) -> float:
@@ -159,11 +165,22 @@ def is_flexible_job(annotations: dict[str, Any] | None) -> bool:
     return str(flexible_value).lower() == "true"
 
 
-def parse_annotations(annotations: dict[str, Any] | None) -> ParsedAnnotations:
+def parse_annotations(
+    annotations: dict[str, Any] | None,
+    created_at: datetime | None = None,
+) -> ParsedAnnotations:
     """Parse and validate job annotations.
+
+    Exactly one of ``deadline`` (absolute) and ``deadline-in`` (relative to the
+    Job's creation time, F-22) is required. Once the controller has resolved a
+    relative deadline it writes it to ``deadline`` and marks it with
+    ``deadline-source: deadline-in``; that combination is accepted and the
+    stored absolute value is used, so later reconciles stay stable.
 
     Args:
         annotations: Job metadata annotations
+        created_at: Job creation time used to resolve ``deadline-in``
+            (defaults to now)
 
     Returns:
         ParsedAnnotations with validated values
@@ -182,10 +199,19 @@ def parse_annotations(annotations: dict[str, Any] | None) -> ParsedAnnotations:
         )
 
     deadline_str = annotations.get(ANNOTATION_DEADLINE)
-    if deadline_str is None:
+    deadline_in_str = annotations.get(ANNOTATION_DEADLINE_IN)
+    already_resolved = (
+        str(annotations.get(ANNOTATION_DEADLINE_SOURCE, "")).strip() == DEADLINE_SOURCE_RELATIVE
+    )
+    if deadline_str is None and deadline_in_str is None:
         raise AnnotationError(
-            f"Missing required annotation: {ANNOTATION_DEADLINE}",
+            f"Missing required annotation: {ANNOTATION_DEADLINE} or {ANNOTATION_DEADLINE_IN}",
             annotation_key=ANNOTATION_DEADLINE,
+        )
+    if deadline_str is not None and deadline_in_str is not None and not already_resolved:
+        raise AnnotationError(
+            f"Set only one of {ANNOTATION_DEADLINE} and {ANNOTATION_DEADLINE_IN}, not both",
+            annotation_key=ANNOTATION_DEADLINE_IN,
         )
 
     runtime_str = annotations.get(ANNOTATION_ESTIMATED_RUNTIME)
@@ -195,8 +221,22 @@ def parse_annotations(annotations: dict[str, Any] | None) -> ParsedAnnotations:
             annotation_key=ANNOTATION_ESTIMATED_RUNTIME,
         )
 
-    deadline = parse_iso8601_datetime(str(deadline_str))
     estimated_runtime = parse_duration(str(runtime_str))
+
+    deadline_in: timedelta | None = None
+    if deadline_in_str is not None:
+        deadline_in = parse_duration(str(deadline_in_str), annotation_key=ANNOTATION_DEADLINE_IN)
+
+    deadline_resolved_now = False
+    if deadline_str is not None:
+        deadline = parse_iso8601_datetime(str(deadline_str))
+    else:
+        assert deadline_in is not None
+        reference = created_at or datetime.now(UTC)
+        if reference.tzinfo is None:
+            reference = reference.replace(tzinfo=UTC)
+        deadline = reference + deadline_in
+        deadline_resolved_now = True
 
     planned_start: datetime | None = None
     planned_start_str = annotations.get(ANNOTATION_PLANNED_START)
@@ -255,6 +295,8 @@ def parse_annotations(annotations: dict[str, Any] | None) -> ParsedAnnotations:
         renewable_threshold_override=threshold_override,
         max_delay=max_delay,
         latest_start=latest_start,
+        deadline_in=deadline_in,
+        deadline_resolved_now=deadline_resolved_now,
     )
 
 

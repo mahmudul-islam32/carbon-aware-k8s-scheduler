@@ -14,11 +14,14 @@ import structlog
 from carbon_scheduler.carbon.live import estimate_avoided_emissions, extract_job_resources
 from carbon_scheduler.config import (
     ANNOTATION_CO2_AVOIDED,
+    ANNOTATION_DEADLINE,
+    ANNOTATION_DEADLINE_SOURCE,
     ANNOTATION_EXPECTED_RENEWABLE_SHARE,
     ANNOTATION_FALLBACK_REASON,
     ANNOTATION_LATEST_START,
     ANNOTATION_PLANNED_START,
     ANNOTATION_POLICY_USED,
+    DEADLINE_SOURCE_RELATIVE,
     Settings,
     get_settings,
 )
@@ -213,6 +216,7 @@ class JobScheduler:
         annotations: dict[str, Any],
         current_time: datetime | None = None,
         job_spec: dict[str, Any] | None = None,
+        created_at: datetime | None = None,
     ) -> ScheduleDecision:
         """Calculate the scheduling decision for a job.
 
@@ -222,6 +226,8 @@ class JobScheduler:
             annotations: Job annotations
             current_time: Current time (defaults to now)
             job_spec: Job spec, used to estimate energy from resource requests
+            created_at: Job creation time, the reference for ``deadline-in``
+                (defaults to ``current_time``)
 
         Returns:
             ScheduleDecision with the scheduling plan
@@ -230,7 +236,7 @@ class JobScheduler:
             current_time = datetime.now(UTC)
 
         try:
-            parsed = parse_annotations(annotations)
+            parsed = parse_annotations(annotations, created_at=created_at or current_time)
         except AnnotationError as e:
             logger.warning(
                 "annotation_validation_failed",
@@ -244,6 +250,33 @@ class JobScheduler:
                 fallback_reason=f"validation_error: {e}",
             )
 
+        decision = await self._schedule_parsed(
+            job_name, job_namespace, parsed, current_time, job_spec
+        )
+
+        if parsed.deadline_resolved_now:
+            # F-22: persist the resolved relative deadline so every later
+            # reconcile (and a restarted controller) sees the same value.
+            decision.annotations_to_set[ANNOTATION_DEADLINE] = parsed.deadline.isoformat()
+            decision.annotations_to_set[ANNOTATION_DEADLINE_SOURCE] = DEADLINE_SOURCE_RELATIVE
+            logger.info(
+                "relative_deadline_resolved",
+                job_name=job_name,
+                namespace=job_namespace,
+                deadline=parsed.deadline.isoformat(),
+            )
+
+        return decision
+
+    async def _schedule_parsed(
+        self,
+        job_name: str,
+        job_namespace: str,
+        parsed: ParsedAnnotations,
+        current_time: datetime,
+        job_spec: dict[str, Any] | None,
+    ) -> ScheduleDecision:
+        """Plan a job whose annotations have already been validated."""
         policy_name = parsed.policy_override or self.settings.policy
         threshold_pct = (
             parsed.renewable_threshold_override
