@@ -1,0 +1,41 @@
+# Example: Daily Report Generation Job
+# Light-weight job with short runtime and flexible deadline.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: daily-report-2026-11-01
+  namespace: reports
+  labels:
+    app: report-generator
+    report-type: daily
+  annotations:
+    carbon-scheduler.mahmudul-islam32.github.io/flexible: "true"
+    # Report needed by 8 AM for the morning standup
+    carbon-scheduler.mahmudul-islam32.github.io/deadline: "2026-11-02T08:00:00+01:00"
+    # Usually completes in 30 minutes
+    carbon-scheduler.mahmudul-islam32.github.io/estimated-runtime: "30m"
+spec:
+  suspend: true
+  backoffLimit: 3
+  completions: 1
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app: report-generator
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: reporter
+          image: company/report-generator:v1.5.0
+          args:
+            - --date=2026-11-01
+            - --format=pdf,excel
+            - --recipients=stakeholders@company.com
+          resources:
+            requests:
+              cpu: "2"
+              memory: "4Gi"
+            limits:
+              cpu: "2"
+              memory: "4Gi"

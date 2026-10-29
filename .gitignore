@@ -28,3 +28,9 @@ htmlcov/
 .vscode/
 .idea/
 .DS_Store
+# Simulation data
+data/
+*.csv
+# Helm dependencies
+charts/*/charts/
+charts/*/Chart.lock

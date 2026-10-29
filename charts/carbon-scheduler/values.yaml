@@ -1,0 +1,119 @@
+# Default values for carbon-scheduler
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/mahmudul-islam32/carbon-scheduler
+  tag: ""  # Defaults to .Chart.AppVersion
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+rbac:
+  # Specifies whether RBAC resources should be created
+  create: true
+
+podAnnotations: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Carbon scheduler configuration
+config:
+  # Window selection policy: immediate, threshold, greenest-window
+  policy: greenest-window
+  # Threshold policy: release when forecast share >= this value
+  renewableThresholdPct: 60
+  # Maximum delay for any job beyond its deadline
+  maxDelay: "24h"
+  # Energy-Charts country code
+  gridCountry: "de"
+  # Base URL for Energy-Charts API
+  gridApiBaseUrl: "https://api.energy-charts.info"
+  # How often to refresh forecast data (minutes)
+  forecastRefreshMinutes: 30
+  # Safety margin before deadline (minutes)
+  deadlineSafetyMarginMinutes: 5
+  # How often to reconcile job states (seconds)
+  reconcileIntervalSeconds: 60
+  # Enable leader election for HA deployments
+  leaderElection: true
+  # Logging level
+  logLevel: INFO
+  # Log output format: json, console
+  logFormat: json
+
+# Emission factors configuration
+emissionFactors:
+  # Whether to use custom emission factors
+  custom: false
+  # Custom emission factors (used if custom: true)
+  # Keys match Energy-Charts API production_types
+  factors: {}
+
+# Metrics configuration
+metrics:
+  enabled: true
+  port: 9090
+  service:
+    type: ClusterIP
+    annotations: {}
+  serviceMonitor:
+    enabled: false
+    namespace: ""
+    interval: 30s
+    scrapeTimeout: 10s
+    labels: {}
+
+# Grafana dashboard
+grafana:
+  enabled: false
+  # Namespace where Grafana looks for dashboard ConfigMaps
+  namespace: ""
+  # Labels for Grafana sidecar discovery
+  labels:
+    grafana_dashboard: "1"
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Extra environment variables
+extraEnv: []
+
+# Extra volume mounts
+extraVolumeMounts: []
+
+# Extra volumes
+extraVolumes: []

@@ -1,0 +1,22 @@
+apiVersion: v2
+name: carbon-scheduler
+description: A Carbon-Aware Kubernetes Batch Scheduler that delays jobs to greener time windows
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+kubeVersion: ">=1.23.0-0"
+home: https://github.com/mahmudul-islam32/carbon-aware-scheduler
+sources:
+  - https://github.com/mahmudul-islam32/carbon-aware-scheduler
+keywords:
+  - carbon
+  - scheduler
+  - sustainability
+  - green
+  - batch
+  - jobs
+maintainers:
+  - name: mahmudul-islam32
+    url: https://github.com/mahmudul-islam32
+annotations:
+  category: Scheduling

@@ -1,0 +1,38 @@
+# Example: Non-flexible job (immediate execution)
+# Jobs without the flexible annotation are ignored by the carbon scheduler
+# and run normally per Kubernetes default behavior.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: urgent-data-fix
+  namespace: operations
+  labels:
+    app: data-fix
+    priority: urgent
+  # No carbon-scheduler annotations - this job runs immediately
+spec:
+  # Not suspended - runs immediately when applied
+  suspend: false
+  backoffLimit: 3
+  completions: 1
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app: data-fix
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: fixer
+          image: company/data-tools:v1.0.0
+          command: ["./fix-data.sh"]
+          args:
+            - --issue=TICKET-1234
+            - --table=orders
+          resources:
+            requests:
+              cpu: "1"
+              memory: "1Gi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"

@@ -1,0 +1,71 @@
+# Example: Flexible ML Training Job with GPU
+# This job has a 24-hour deadline and 6-hour runtime, giving the scheduler
+# plenty of flexibility to find a green window.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: model-training-v42
+  namespace: ml-workloads
+  labels:
+    app: model-training
+    model-version: "42"
+    team: ml-platform
+  annotations:
+    # Mark as flexible for carbon-aware scheduling
+    carbon-scheduler.mahmudul-islam32.github.io/flexible: "true"
+    # 24-hour deadline from submission
+    carbon-scheduler.mahmudul-islam32.github.io/deadline: "2026-11-03T00:00:00+01:00"
+    # Estimated 6 hours runtime
+    carbon-scheduler.mahmudul-islam32.github.io/estimated-runtime: "6h"
+spec:
+  suspend: true
+  backoffLimit: 2
+  completions: 1
+  ttlSecondsAfterFinished: 172800  # 48 hours
+  template:
+    metadata:
+      labels:
+        app: model-training
+      annotations:
+        # Track GPU usage for carbon accounting
+        carbon-scheduler.mahmudul-islam32.github.io/gpu-count: "2"
+    spec:
+      restartPolicy: OnFailure
+      nodeSelector:
+        gpu: "true"
+      tolerations:
+        - key: "nvidia.com/gpu"
+          operator: "Exists"
+          effect: "NoSchedule"
+      containers:
+        - name: trainer
+          image: company/ml-trainer:latest
+          command: ["python", "-m", "training.run"]
+          args:
+            - --model=transformer-xl
+            - --dataset=prod-v3
+            - --epochs=100
+            - --checkpoint-dir=/checkpoints
+          resources:
+            requests:
+              cpu: "8"
+              memory: "32Gi"
+              nvidia.com/gpu: "2"
+            limits:
+              cpu: "8"
+              memory: "32Gi"
+              nvidia.com/gpu: "2"
+          volumeMounts:
+            - name: checkpoints
+              mountPath: /checkpoints
+            - name: dataset
+              mountPath: /data
+              readOnly: true
+      volumes:
+        - name: checkpoints
+          persistentVolumeClaim:
+            claimName: training-checkpoints
+        - name: dataset
+          persistentVolumeClaim:
+            claimName: ml-dataset
+            readOnly: true
