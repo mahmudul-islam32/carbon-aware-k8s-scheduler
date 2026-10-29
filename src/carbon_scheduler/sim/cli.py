@@ -16,12 +16,24 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
-from carbon_scheduler.planner.models import PolicyConfig
+from carbon_scheduler.carbon.live import JobResources
+from carbon_scheduler.controller.annotations import (
+    AnnotationError,
+    parse_duration,
+    parse_iso8601_datetime,
+)
+from carbon_scheduler.planner.models import Forecast, PolicyConfig
 from carbon_scheduler.planner.policies import PolicyName
 from carbon_scheduler.sim.backtest import Backtest, BacktestResult
 from carbon_scheduler.sim.historical import (
     HistoricalDataFetcher,
     HistoricalDataStore,
+)
+from carbon_scheduler.sim.plan import (
+    forecast_from_energy_charts,
+    load_forecast_file,
+    plan_job,
+    sparkline,
 )
 from carbon_scheduler.sim.trace import (
     JobTrace,
@@ -101,6 +113,9 @@ def main() -> None:
     \b
       # View summary
       carbon-sim summary results.csv
+
+      # Dry-run: when would a 2h job with a 12h window start?
+      carbon-sim plan --runtime 2h --within 12h
     """
     pass
 
@@ -390,6 +405,112 @@ def summary_command(results_file: Path) -> None:
     console.print(f"Source: {results_file}\n")
 
     _print_summary_table(result)
+
+
+@main.command("plan")
+@click.option("--runtime", "-r", required=True, help="Estimated runtime, e.g. '2h' or '1h30m'")
+@click.option("--deadline", "-d", default=None, help="Deadline (ISO 8601)")
+@click.option("--within", "-w", default=None, help="Deadline relative to now, e.g. '12h'")
+@click.option(
+    "--policy",
+    "-p",
+    type=click.Choice(VALID_POLICIES),
+    default="greenest-window",
+    show_default=True,
+    help="Policy to evaluate",
+)
+@click.option("--threshold", default=60, show_default=True, help="Threshold policy: min share %")
+@click.option("--cpu", default=1.0, show_default=True, help="Requested CPU cores")
+@click.option("--gpu", default=0.0, show_default=True, help="Requested GPUs")
+@click.option("--country", default="de", show_default=True, help="Energy-Charts country code")
+@click.option(
+    "--forecast-file",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="Use a saved /ren_share_forecast JSON response instead of the live API",
+)
+@click.option("--now", "now_str", default=None, hidden=True, help="Override current time (ISO 8601)")
+def plan_command(
+    runtime: str,
+    deadline: str | None,
+    within: str | None,
+    policy: PolicyName,
+    threshold: int,
+    cpu: float,
+    gpu: float,
+    country: str,
+    forecast_file: Path | None,
+    now_str: str | None,
+) -> None:
+    """Show the window the controller would choose for a job, without a cluster."""
+    try:
+        runtime_td = parse_duration(runtime)
+        now = parse_iso8601_datetime(now_str) if now_str else datetime.now().astimezone()
+        if deadline:
+            deadline_dt = parse_iso8601_datetime(deadline)
+        elif within:
+            deadline_dt = now + parse_duration(within, annotation_key="--within")
+        else:
+            raise click.UsageError("Pass either --deadline or --within")
+    except AnnotationError as e:
+        raise click.BadParameter(str(e)) from e
+
+    if forecast_file is not None:
+        forecast = load_forecast_file(forecast_file)
+    else:
+        forecast = asyncio.run(_fetch_live_forecast(country))
+
+    result = plan_job(
+        forecast=forecast,
+        now=now,
+        runtime=runtime_td,
+        deadline=deadline_dt,
+        policy=policy,
+        threshold_pct=threshold,
+        resources=JobResources(cpu_cores=cpu, gpu_units=gpu),
+    )
+
+    horizon = forecast.get_points_in_range(now, deadline_dt)
+    if horizon:
+        shares = [p.renewable_share_pct for p in horizon]
+        console.print("\n[bold]Renewable share forecast until deadline[/bold]")
+        console.print(f"  [green]{sparkline(shares)}[/green]")
+        console.print(
+            f"  {horizon[0].timestamp.astimezone():%a %H:%M} → "
+            f"{horizon[-1].timestamp.astimezone():%a %H:%M}   "
+            f"min {min(shares):.0f}%  max {max(shares):.0f}%"
+        )
+
+    window = result.window
+    table = Table(title="Dry-run plan", show_header=False, title_style="bold cyan")
+    table.add_column("Field", style="bold")
+    table.add_column("Value")
+    table.add_row("Policy", window.policy_used)
+    table.add_row("Planned start", f"{window.start.astimezone():%Y-%m-%d %H:%M %Z}")
+    table.add_row("Planned end", f"{window.end.astimezone():%Y-%m-%d %H:%M %Z}")
+    table.add_row("Latest start", f"{result.latest_start.astimezone():%Y-%m-%d %H:%M %Z}")
+    table.add_row("Held for", _format_duration(result.delay.total_seconds()))
+    if window.mean_renewable_share_pct is not None:
+        table.add_row("Expected renewable share", f"{window.mean_renewable_share_pct:.1f}%")
+    if window.is_fallback:
+        table.add_row("Fallback", f"[yellow]{window.fallback_reason}[/yellow]")
+    if result.avoided is not None:
+        avoided = result.avoided
+        grams = f"{avoided.avoided_gco2:.1f} g"
+        if avoided.avoided_gco2 > 0:
+            grams = f"[green]{grams}[/green]"
+        table.add_row("Share if started now", f"{avoided.baseline_share_pct:.1f}%")
+        table.add_row("Est. CO₂ avoided", f"{grams} ({avoided.energy_kwh:.2f} kWh, estimate)")
+    console.print(table)
+
+
+async def _fetch_live_forecast(country: str) -> Forecast:
+    """Fetch the current renewable share forecast from Energy-Charts."""
+    from carbon_scheduler.grid import EnergyChartsClient
+
+    async with EnergyChartsClient(country=country) as client:
+        data = await client.get_renewable_forecast(country)
+    return forecast_from_energy_charts(data.model_dump())
 
 
 def _print_summary_table(result: BacktestResult) -> None:

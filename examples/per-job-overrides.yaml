@@ -1,0 +1,32 @@
+# Example: per-job policy overrides
+# This Job ignores the controller-wide policy and instead waits for the first
+# slot with at least 70% renewable share, but is never held longer than 8 hours.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: weekly-report-render
+  namespace: reporting
+  labels:
+    app: report-render
+  annotations:
+    carbon-scheduler.mahmudul-islam32.github.io/flexible: "true"
+    carbon-scheduler.mahmudul-islam32.github.io/deadline: "2026-11-02T18:00:00+01:00"
+    carbon-scheduler.mahmudul-islam32.github.io/estimated-runtime: "45m"
+    # Optional overrides (all three are independent)
+    carbon-scheduler.mahmudul-islam32.github.io/policy: "threshold"
+    carbon-scheduler.mahmudul-islam32.github.io/renewable-threshold: "70"
+    carbon-scheduler.mahmudul-islam32.github.io/max-delay: "8h"
+spec:
+  suspend: true
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: render
+          image: busybox:1.36
+          command: ["sh", "-c", "echo rendering report && sleep 30"]
+          resources:
+            requests:
+              cpu: "2"
+              memory: "1Gi"

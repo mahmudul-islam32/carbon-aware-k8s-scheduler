@@ -17,9 +17,15 @@ from carbon_scheduler.config import (
     ANNOTATION_ESTIMATED_RUNTIME,
     ANNOTATION_FALLBACK_REASON,
     ANNOTATION_FLEXIBLE,
+    ANNOTATION_LATEST_START,
+    ANNOTATION_MAX_DELAY,
     ANNOTATION_PLANNED_START,
+    ANNOTATION_POLICY,
     ANNOTATION_POLICY_USED,
+    ANNOTATION_RENEWABLE_THRESHOLD,
 )
+
+VALID_POLICIES = ("immediate", "threshold", "greenest-window")
 
 
 class AnnotationError(Exception):
@@ -40,6 +46,10 @@ class ParsedAnnotations:
     planned_start: datetime | None = None
     policy_used: str | None = None
     fallback_reason: str | None = None
+    policy_override: str | None = None
+    renewable_threshold_override: int | None = None
+    max_delay: timedelta | None = None
+    latest_start: datetime | None = None
 
     @property
     def estimated_runtime_seconds(self) -> float:
@@ -47,13 +57,17 @@ class ParsedAnnotations:
         return self.estimated_runtime.total_seconds()
 
 
-def parse_duration(duration_str: str) -> timedelta:
+def parse_duration(
+    duration_str: str,
+    annotation_key: str = ANNOTATION_ESTIMATED_RUNTIME,
+) -> timedelta:
     """Parse a duration string like '2h', '30m', '1h30m', '90s'.
 
     Supported units: d (days), h (hours), m (minutes), s (seconds)
 
     Args:
         duration_str: Duration string to parse
+        annotation_key: Annotation reported in errors
 
     Returns:
         Parsed timedelta
@@ -64,7 +78,7 @@ def parse_duration(duration_str: str) -> timedelta:
     if not duration_str:
         raise AnnotationError(
             "Duration string is empty",
-            annotation_key=ANNOTATION_ESTIMATED_RUNTIME,
+            annotation_key=annotation_key,
         )
 
     s = duration_str.strip().lower()
@@ -79,7 +93,7 @@ def parse_duration(duration_str: str) -> timedelta:
         raise AnnotationError(
             f"Cannot parse duration '{duration_str}'. "
             "Expected format like '2h', '30m', '1h30m', or '3600s'",
-            annotation_key=ANNOTATION_ESTIMATED_RUNTIME,
+            annotation_key=annotation_key,
         )
 
     multipliers = {"d": 86400, "h": 3600, "m": 60, "s": 1}
@@ -89,7 +103,7 @@ def parse_duration(duration_str: str) -> timedelta:
     if total_seconds <= 0:
         raise AnnotationError(
             f"Duration '{duration_str}' must be positive",
-            annotation_key=ANNOTATION_ESTIMATED_RUNTIME,
+            annotation_key=annotation_key,
         )
 
     return timedelta(seconds=total_seconds)
@@ -190,8 +204,45 @@ def parse_annotations(annotations: dict[str, Any] | None) -> ParsedAnnotations:
         with contextlib.suppress(AnnotationError):
             planned_start = parse_iso8601_datetime(str(planned_start_str))
 
+    latest_start: datetime | None = None
+    latest_start_str = annotations.get(ANNOTATION_LATEST_START)
+    if latest_start_str:
+        with contextlib.suppress(AnnotationError):
+            latest_start = parse_iso8601_datetime(str(latest_start_str))
+
     policy_used = annotations.get(ANNOTATION_POLICY_USED)
     fallback_reason = annotations.get(ANNOTATION_FALLBACK_REASON)
+
+    policy_override: str | None = None
+    policy_str = annotations.get(ANNOTATION_POLICY)
+    if policy_str:
+        policy_override = str(policy_str).strip().lower()
+        if policy_override not in VALID_POLICIES:
+            raise AnnotationError(
+                f"Unknown policy '{policy_str}'. Valid policies: {', '.join(VALID_POLICIES)}",
+                annotation_key=ANNOTATION_POLICY,
+            )
+
+    threshold_override: int | None = None
+    threshold_str = annotations.get(ANNOTATION_RENEWABLE_THRESHOLD)
+    if threshold_str is not None and str(threshold_str).strip():
+        try:
+            threshold_override = int(float(str(threshold_str).strip().rstrip("%")))
+        except ValueError as e:
+            raise AnnotationError(
+                f"Cannot parse renewable threshold '{threshold_str}'. Expected 0-100",
+                annotation_key=ANNOTATION_RENEWABLE_THRESHOLD,
+            ) from e
+        if not 0 <= threshold_override <= 100:
+            raise AnnotationError(
+                f"Renewable threshold must be between 0 and 100, got {threshold_override}",
+                annotation_key=ANNOTATION_RENEWABLE_THRESHOLD,
+            )
+
+    max_delay: timedelta | None = None
+    max_delay_str = annotations.get(ANNOTATION_MAX_DELAY)
+    if max_delay_str:
+        max_delay = parse_duration(str(max_delay_str), annotation_key=ANNOTATION_MAX_DELAY)
 
     return ParsedAnnotations(
         flexible=True,
@@ -200,6 +251,10 @@ def parse_annotations(annotations: dict[str, Any] | None) -> ParsedAnnotations:
         planned_start=planned_start,
         policy_used=str(policy_used) if policy_used else None,
         fallback_reason=str(fallback_reason) if fallback_reason else None,
+        policy_override=policy_override,
+        renewable_threshold_override=threshold_override,
+        max_delay=max_delay,
+        latest_start=latest_start,
     )
 
 

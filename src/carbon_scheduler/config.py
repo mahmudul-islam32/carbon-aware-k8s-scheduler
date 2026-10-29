@@ -46,7 +46,24 @@ class Settings(BaseSettings):
     )
     max_delay: str = Field(
         default="24h",
-        description="Maximum delay for any job beyond its deadline",
+        description="Maximum time a job may be held after submission (e.g. '24h')",
+    )
+
+    # Live CO2 accounting
+    fossil_intensity_gco2_kwh: float = Field(
+        default=400.0,
+        ge=0,
+        description="Carbon intensity attributed to the non-renewable share (gCO2/kWh)",
+    )
+    watts_per_cpu_core: float = Field(
+        default=10.0,
+        ge=0,
+        description="Estimated power draw per requested CPU core (W)",
+    )
+    watts_per_gpu: float = Field(
+        default=200.0,
+        ge=0,
+        description="Estimated power draw per requested GPU (W)",
     )
 
     # Emission factors
@@ -103,6 +120,13 @@ ANNOTATION_ACTUAL_START = f"{ANNOTATION_PREFIX}/actual-start"
 ANNOTATION_CO2_AVOIDED = f"{ANNOTATION_PREFIX}/co2-avoided-grams"
 ANNOTATION_POLICY_USED = f"{ANNOTATION_PREFIX}/policy-used"
 ANNOTATION_FALLBACK_REASON = f"{ANNOTATION_PREFIX}/fallback-reason"
+# Optional per-job overrides
+ANNOTATION_POLICY = f"{ANNOTATION_PREFIX}/policy"
+ANNOTATION_RENEWABLE_THRESHOLD = f"{ANNOTATION_PREFIX}/renewable-threshold"
+ANNOTATION_MAX_DELAY = f"{ANNOTATION_PREFIX}/max-delay"
+# Written by the controller
+ANNOTATION_LATEST_START = f"{ANNOTATION_PREFIX}/latest-start"
+ANNOTATION_EXPECTED_RENEWABLE_SHARE = f"{ANNOTATION_PREFIX}/expected-renewable-share"
 
 
 def get_settings() -> Settings:
