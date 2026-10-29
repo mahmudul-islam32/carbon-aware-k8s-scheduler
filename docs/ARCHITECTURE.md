@@ -37,7 +37,7 @@ flowchart TB
 | [`grid`](../src/carbon_scheduler/grid) | Energy-Charts client for `/ren_share_forecast`, `/signal`, `/public_power`. Caching, `Retry-After` handling, `substitute` flag propagation, request metrics | F-03, F-19 |
 | [`planner`](../src/carbon_scheduler/planner) | Pure policy functions: `immediate`, `threshold`, `greenest-window` | F-04 |
 | [`carbon`](../src/carbon_scheduler/carbon) | Intensity from generation mix and emission factors; live per-job estimate from renewable share and resource requests | F-06, F-16 |
-| [`controller`](../src/carbon_scheduler/controller) | kopf handlers for Job create/update, release timer, annotation contract, Event posting | F-01, F-02, F-05, F-12, F-14, F-15 |
+| [`controller`](../src/carbon_scheduler/controller) | kopf handlers for Job create/update, release timer, annotation contract, Event posting | F-01, F-02, F-05, F-12, F-14, F-15, F-22 |
 | [`metrics`](../src/carbon_scheduler/metrics) | Prometheus metrics plus the HTTP server for `/metrics`, `/healthz`, `/readyz` | F-07, F-13, F-19 |
 | [`sim`](../src/carbon_scheduler/sim) | `carbon-sim` CLI: fetch history, generate traces, backtest, dry-run plan | F-09, F-17 |
 
@@ -112,5 +112,5 @@ Backtest policies over at least 3 months of historical German data with syntheti
 | v1 or v2 Energy-Charts endpoints? | v1 for the MVP |
 | Emission-factor source | IPCC AR5 lifecycle medians, cross-checked with UBA (see YAML) |
 | Should a mutating webhook set `suspend: true`? | Yes, planned as [F-21](FEATURES.md#f-21--mutating-admission-webhook) |
-| How do CronJobs express deadlines? | Open; relative deadlines planned as [F-22](FEATURES.md#f-22--relative-deadlines-for-cronjobs) |
+| How do CronJobs express deadlines? | `deadline-in` relative to the Job's creation time, resolved once and stored in `deadline` ([F-22](FEATURES.md#f-22--relative-deadlines-for-cronjobs)) |
 | Should plans move when the forecast changes? | Open; planned as [F-20](FEATURES.md#f-20--re-plan-on-forecast-refresh) |

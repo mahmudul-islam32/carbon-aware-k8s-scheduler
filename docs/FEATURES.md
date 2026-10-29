@@ -7,8 +7,8 @@
 <p align="center">
   <img alt="Done" src="https://img.shields.io/badge/done-9-16a34a?style=for-the-badge">
   <img alt="Improved" src="https://img.shields.io/badge/improved-2-0d9488?style=for-the-badge">
-  <img alt="New" src="https://img.shields.io/badge/new-7-2563eb?style=for-the-badge">
-  <img alt="Planned" src="https://img.shields.io/badge/planned-16-d97706?style=for-the-badge">
+  <img alt="New" src="https://img.shields.io/badge/new-8-2563eb?style=for-the-badge">
+  <img alt="Planned" src="https://img.shields.io/badge/planned-15-d97706?style=for-the-badge">
 </p>
 
 This is the single source of truth for what the scheduler does today and what comes next.
@@ -20,8 +20,8 @@ can pick one, build it, tick the boxes and flip its status.
 1. [Legend](#legend)
 2. [At a glance](#at-a-glance)
 3. [How the pieces fit](#how-the-pieces-fit)
-4. [Shipped features](#shipped-features) (F-01 to F-19)
-5. [Backlog](#backlog) (F-11, F-20 to F-34)
+4. [Shipped features](#shipped-features) (F-01 to F-19, F-22)
+5. [Backlog](#backlog) (F-11, F-20, F-21, F-23 to F-34)
 6. [Working through the backlog](#working-through-the-backlog)
 
 ---
@@ -64,7 +64,7 @@ can pick one, build it, tick the boxes and flip its status.
 | [F-19](#f-19--grid-and-api-observability) | Grid and API observability | Observability | Should | 🆕 New |
 | [F-20](#f-20--re-plan-on-forecast-refresh) | Re-plan on forecast refresh | Grid data | Should | 🗓️ Planned |
 | [F-21](#f-21--mutating-admission-webhook) | Mutating admission webhook | Core control loop | Should | 🗓️ Planned |
-| [F-22](#f-22--relative-deadlines-for-cronjobs) | Relative deadlines for CronJobs | Core control loop | Should | 🗓️ Planned |
+| [F-22](#f-22--relative-deadlines-for-cronjobs) | Relative deadlines for CronJobs | Core control loop | Should | 🆕 New |
 | [F-23](#f-23--lowest-carbon-policy) | Lowest-carbon policy | Planning | Could | 🗓️ Planned |
 | [F-24](#f-24--spatial-multi-region-shifting) | Spatial (multi-region) shifting | Planning | Could | 🗓️ Planned |
 | [F-25](#f-25--team-carbon-budgets) | Team carbon budgets | Carbon accounting | Could | 🗓️ Planned |
@@ -96,7 +96,7 @@ flowchart LR
     classDef obs fill:#ede9fe,stroke:#7c3aed,color:#4c1d95,stroke-width:2px
     classDef tool fill:#fce7f3,stroke:#db2777,color:#831843,stroke-width:2px
 
-    A["F-01 · F-14 · F-15<br/>Job annotations"]:::core --> B["F-02 · F-05<br/>Controller"]:::core
+    A["F-01 · F-14 · F-15 · F-22<br/>Job annotations"]:::core --> B["F-02 · F-05<br/>Controller"]:::core
     C["F-03<br/>Energy-Charts client"]:::grid --> B
     B --> D["F-04<br/>Policies"]:::plan
     D --> B
@@ -124,7 +124,7 @@ flowchart LR
 | Annotation (prefix `carbon-scheduler.mahmudul-islam32.github.io/`) | Required | Example |
 |---|:---:|---|
 | `flexible` | ✔ | `"true"` |
-| `deadline` | ✔ | `"2026-11-02T06:00:00+01:00"` |
+| `deadline` or `deadline-in` | ✔ (one of) | `"2026-11-02T06:00:00+01:00"` or `"6h"` (see [F-22](#f-22--relative-deadlines-for-cronjobs)) |
 | `estimated-runtime` | ✔ | `"2h"`, `"1h30m"`, `"90m"` |
 | `policy`, `renewable-threshold`, `max-delay` | | see [F-14](#f-14--per-job-policy-overrides) and [F-15](#f-15--max-delay-cap) |
 
@@ -438,6 +438,30 @@ Renewable share forecast until deadline
 
 ---
 
+### F-22 · Relative deadlines for CronJobs
+
+`🆕 New` · `Should` · `Core control loop` · [`controller/annotations.py`](../src/carbon_scheduler/controller/annotations.py)
+
+> **As a** data engineer, **I want** to write `deadline-in: "6h"` on a CronJob template, **so that** every Job it creates gets a deadline relative to its own creation time.
+
+Absolute deadlines don't work for recurring Jobs: every run would share the same timestamp.
+
+```yaml
+carbon-scheduler.mahmudul-islam32.github.io/deadline-in: "12h"   # same format as estimated-runtime
+```
+
+The controller resolves `deadline = creationTimestamp + deadline-in` when it first plans the Job and
+writes the result to `.../deadline`, marked with `.../deadline-source: "deadline-in"`. Later reconciles
+and a restarted controller reuse that stored value, so the deadline never drifts.
+
+**Acceptance criteria**
+- [x] `deadline-in` accepts the same duration format as `estimated-runtime`.
+- [x] Exactly one of `deadline` / `deadline-in` is required; both → `ValidationError`.
+- [x] `examples/batch-processing-cronjob.yaml` uses it.
+- [x] Unit tests for parsing and for a Job created by a CronJob.
+
+---
+
 ## Backlog
 
 <p align="center">
@@ -453,7 +477,6 @@ quadrantChart
     quadrant-2 Quick wins
     quadrant-3 Fill-ins
     quadrant-4 Research
-    F-22 Relative deadlines: [0.18, 0.82]
     F-20 Re-plan: [0.42, 0.78]
     F-32 Alerts: [0.15, 0.55]
     F-34 Release: [0.22, 0.62]
@@ -472,27 +495,6 @@ quadrantChart
 ```
 
 ### 🟢 Wave NOW
-
-#### F-22 · Relative deadlines for CronJobs
-
-`🗓️ Planned` · `Should` · Effort **S** · Impact **High**
-
-> **As a** data engineer, **I want** to write `deadline-in: "6h"` on a CronJob template, **so that** every Job it creates gets a deadline relative to its own creation time.
-
-Absolute deadlines don't work for recurring Jobs: every run would share the same timestamp.
-
-**Design sketch:** new annotation `.../deadline-in`. In `calculate_schedule`, derive
-`deadline = creationTimestamp + deadline-in` when `deadline` is absent, and write the resolved value back to `.../deadline`.
-
-**Acceptance criteria**
-- [ ] `deadline-in` accepts the same duration format as `estimated-runtime`.
-- [ ] Exactly one of `deadline` / `deadline-in` is required; both → `ValidationError`.
-- [ ] `examples/batch-processing-cronjob.yaml` uses it.
-- [ ] Unit tests for parsing and for a Job created by a CronJob.
-
-**Touches:** `config.py`, `controller/annotations.py`, `controller/scheduler.py`, `examples/`.
-
----
 
 #### F-32 · PrometheusRule alert pack
 
