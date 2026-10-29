@@ -1,0 +1,49 @@
+# Example: CronJob that creates flexible Jobs
+# The CronJob triggers at a fixed time, but the created Jobs are held
+# and released when the grid is greenest within the deadline.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: weekly-data-sync
+  namespace: data-pipelines
+  labels:
+    app: data-sync
+    schedule: weekly
+spec:
+  # Trigger every Sunday at midnight
+  schedule: "0 0 * * 0"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    metadata:
+      labels:
+        app: data-sync
+      annotations:
+        # Mark as flexible - will be held until green window
+        carbon-scheduler.mahmudul-islam32.github.io/flexible: "true"
+        # Must complete within 12 hours
+        carbon-scheduler.mahmudul-islam32.github.io/deadline: "2026-11-02T12:00:00+01:00"
+        # Usually takes 3 hours
+        carbon-scheduler.mahmudul-islam32.github.io/estimated-runtime: "3h"
+    spec:
+      suspend: true  # Created suspended, scheduler releases it
+      backoffLimit: 2
+      completions: 1
+      template:
+        metadata:
+          labels:
+            app: data-sync
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: syncer
+              image: company/data-sync:v2.0.0
+              command: ["python", "-m", "sync.weekly"]
+              resources:
+                requests:
+                  cpu: "4"
+                  memory: "16Gi"
+                limits:
+                  cpu: "4"
+                  memory: "16Gi"

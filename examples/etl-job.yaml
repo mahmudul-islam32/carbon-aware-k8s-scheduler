@@ -1,0 +1,51 @@
+# Example: Flexible ETL Job
+# This job will be held by the carbon scheduler and released when the grid is greenest,
+# while still completing before the deadline.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: nightly-etl
+  namespace: data-pipelines
+  labels:
+    app: etl
+    team: data-engineering
+  annotations:
+    # Mark as flexible - the scheduler will manage this job
+    carbon-scheduler.mahmudul-islam32.github.io/flexible: "true"
+    # Job must complete by 6 AM CET tomorrow
+    carbon-scheduler.mahmudul-islam32.github.io/deadline: "2026-11-02T06:00:00+01:00"
+    # Estimated runtime - the scheduler uses this for window selection
+    carbon-scheduler.mahmudul-islam32.github.io/estimated-runtime: "2h"
+spec:
+  # IMPORTANT: Submit the job suspended - the scheduler will release it
+  suspend: true
+  backoffLimit: 3
+  completions: 1
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app: etl
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: etl
+          image: company/etl-runner:v2.3.0
+          command: ["python", "-m", "etl.main"]
+          args:
+            - --source=warehouse
+            - --target=analytics
+            - --date=yesterday
+          resources:
+            requests:
+              cpu: "4"
+              memory: "8Gi"
+            limits:
+              cpu: "4"
+              memory: "8Gi"
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: url

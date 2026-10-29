@@ -1,0 +1,21 @@
+{{- if .Values.metrics.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "carbon-scheduler.fullname" . }}-metrics
+  labels:
+    {{- include "carbon-scheduler.labels" . | nindent 4 }}
+  {{- with .Values.metrics.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.metrics.service.type }}
+  ports:
+    - port: {{ .Values.metrics.port }}
+      targetPort: {{ include "carbon-scheduler.metricsPortName" . }}
+      protocol: TCP
+      name: {{ include "carbon-scheduler.metricsPortName" . }}
+  selector:
+    {{- include "carbon-scheduler.selectorLabels" . | nindent 4 }}
+{{- end }}

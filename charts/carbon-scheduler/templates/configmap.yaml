@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "carbon-scheduler.fullname" . }}-config
+  labels:
+    {{- include "carbon-scheduler.labels" . | nindent 4 }}
+data:
+  emission_factors.yaml: |
+    version: "1.0.0"
+    country: {{ .Values.config.gridCountry | quote }}
+    unit: "gCO2/kWh"
+    {{- if .Values.emissionFactors.custom }}
+    emission_factors:
+      {{- toYaml .Values.emissionFactors.factors | nindent 6 }}
+    {{- else }}
+    emission_factors:
+      # Fossil fuels
+      Lignite: 1054
+      Hard Coal: 820
+      Natural Gas: 490
+      Oil: 650
+      Other Fossil: 700
+      # Nuclear
+      Nuclear: 12
+      # Renewables
+      Wind Onshore: 11
+      Wind Offshore: 12
+      Solar: 45
+      Hydro Run-of-River: 24
+      Hydro Water Reservoir: 24
+      Pumped Storage: 24
+      Biomass: 230
+      Geothermal: 38
+      Other Renewables: 50
+      # Storage and exchange
+      Battery Storage: 0
+      Import Balance: 400
+    {{- end }}
+    default_factor: 500

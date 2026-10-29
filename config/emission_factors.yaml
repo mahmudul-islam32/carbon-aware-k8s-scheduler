@@ -1,0 +1,57 @@
+# Emission factors for German electricity generation
+# Values in gCO₂/kWh (lifecycle emissions)
+# Sources: IPCC AR5, UBA Germany, IEA
+# Last updated: 2026-10-29
+
+version: "1.0.0"
+country: "de"
+unit: "gCO2/kWh"
+
+# Production type emission factors
+# Keys match Energy-Charts API production_types
+emission_factors:
+  # Fossil fuels
+  Lignite: 1054
+  Hard Coal: 820
+  Natural Gas: 490
+  Oil: 650
+  Other Fossil: 700
+  
+  # Nuclear
+  Nuclear: 12
+  
+  # Renewables
+  Wind Onshore: 11
+  Wind Offshore: 12
+  Solar: 45
+  Hydro Run-of-River: 24
+  Hydro Water Reservoir: 24
+  Pumped Storage: 24
+  Biomass: 230
+  Geothermal: 38
+  Other Renewables: 50
+  
+  # Storage and exchange
+  Battery Storage: 0  # Charged from grid, accounted separately
+  Import Balance: 400  # Estimated average for imports
+
+# Default factor for unknown production types
+default_factor: 500
+
+# Sources and methodology notes
+sources:
+  - name: "IPCC AR5 Annex III"
+    url: "https://www.ipcc.ch/report/ar5/wg3/"
+    note: "Lifecycle median values"
+  - name: "UBA Germany"
+    url: "https://www.umweltbundesamt.de/"
+    note: "German-specific factors"
+  - name: "IEA"
+    url: "https://www.iea.org/"
+    note: "Cross-validation"
+
+# Notes
+notes:
+  - "These are lifecycle emission factors including construction and decommissioning"
+  - "Actual grid intensity varies based on imports/exports and grid losses"
+  - "Values are estimates and subject to uncertainty"

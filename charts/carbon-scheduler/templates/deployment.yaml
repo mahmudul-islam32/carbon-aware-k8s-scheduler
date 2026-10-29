@@ -1,0 +1,108 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "carbon-scheduler.fullname" . }}
+  labels:
+    {{- include "carbon-scheduler.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "carbon-scheduler.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "carbon-scheduler.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "carbon-scheduler.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: {{ include "carbon-scheduler.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: {{ include "carbon-scheduler.metricsPortName" . }}
+              containerPort: {{ .Values.metrics.port }}
+              protocol: TCP
+          env:
+            - name: CARBON_POLICY
+              value: {{ .Values.config.policy | quote }}
+            - name: CARBON_RENEWABLE_THRESHOLD_PCT
+              value: {{ .Values.config.renewableThresholdPct | quote }}
+            - name: CARBON_MAX_DELAY
+              value: {{ .Values.config.maxDelay | quote }}
+            - name: CARBON_GRID_COUNTRY
+              value: {{ .Values.config.gridCountry | quote }}
+            - name: CARBON_GRID_API_BASE_URL
+              value: {{ .Values.config.gridApiBaseUrl | quote }}
+            - name: CARBON_FORECAST_REFRESH_MINUTES
+              value: {{ .Values.config.forecastRefreshMinutes | quote }}
+            - name: CARBON_DEADLINE_SAFETY_MARGIN_MINUTES
+              value: {{ .Values.config.deadlineSafetyMarginMinutes | quote }}
+            - name: CARBON_RECONCILE_INTERVAL_SECONDS
+              value: {{ .Values.config.reconcileIntervalSeconds | quote }}
+            - name: CARBON_LEADER_ELECTION
+              value: {{ .Values.config.leaderElection | quote }}
+            - name: CARBON_LOG_LEVEL
+              value: {{ .Values.config.logLevel | quote }}
+            - name: CARBON_LOG_FORMAT
+              value: {{ .Values.config.logFormat | quote }}
+            - name: CARBON_METRICS_PORT
+              value: {{ .Values.metrics.port | quote }}
+            - name: CARBON_EMISSION_FACTORS_FILE
+              value: /config/emission_factors.yaml
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ include "carbon-scheduler.metricsPortName" . }}
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: {{ include "carbon-scheduler.metricsPortName" . }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "carbon-scheduler.fullname" . }}-config
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
