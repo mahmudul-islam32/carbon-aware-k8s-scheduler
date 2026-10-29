@@ -38,7 +38,7 @@ flowchart TB
 | [`planner`](../src/carbon_scheduler/planner) | Pure policy functions: `immediate`, `threshold`, `greenest-window` | F-04 |
 | [`carbon`](../src/carbon_scheduler/carbon) | Intensity from generation mix and emission factors; live per-job estimate from renewable share and resource requests | F-06, F-16 |
 | [`controller`](../src/carbon_scheduler/controller) | kopf handlers for Job create/update, release timer, annotation contract, Event posting | F-01, F-02, F-05, F-12, F-14, F-15 |
-| [`metrics`](../src/carbon_scheduler/metrics) | Prometheus metrics plus the HTTP server for `/metrics`, `/healthz`, `/readyz` | F-07, F-13, F-19 |
+| [`metrics`](../src/carbon_scheduler/metrics) | Prometheus metrics plus the HTTP server for `/metrics`, `/healthz`, `/readyz`; the chart's optional PrometheusRule alerts on them ([runbooks](RUNBOOKS.md)) | F-07, F-13, F-19, F-32 |
 | [`sim`](../src/carbon_scheduler/sim) | `carbon-sim` CLI: fetch history, generate traces, backtest, dry-run plan | F-09, F-17 |
 
 ## 4. Job lifecycle

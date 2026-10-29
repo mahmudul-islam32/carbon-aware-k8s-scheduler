@@ -1,0 +1,78 @@
+{{- if .Values.alerts.enabled -}}
+{{- $a := .Values.alerts -}}
+{{- $runbook := trimSuffix "/" $a.runbookBaseUrl -}}
+{{- $fallback := include "carbon-scheduler.alertMetric" (list . "fallback_releases_total") -}}
+{{- $released := include "carbon-scheduler.alertMetric" (list . "carbon_jobs_released_total") -}}
+{{- $apiErrors := include "carbon-scheduler.alertMetric" (list . "carbon_api_requests_total" "status=~\"5..|429|network_error\"") -}}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "carbon-scheduler.fullname" . }}
+  {{- if $a.namespace }}
+  namespace: {{ $a.namespace }}
+  {{- end }}
+  labels:
+    {{- include "carbon-scheduler.labels" . | nindent 4 }}
+    {{- with $a.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  groups:
+    - name: carbon-scheduler
+      rules:
+        {{- if $a.forecastStale.enabled }}
+        - alert: CarbonSchedulerForecastStale
+          expr: max({{ include "carbon-scheduler.alertMetric" (list . "carbon_forecast_age_seconds") }}) > {{ $a.forecastStale.maxAgeSeconds }}
+          for: {{ $a.forecastStale.for }}
+          labels:
+            severity: {{ $a.forecastStale.severity }}
+          annotations:
+            summary: Carbon scheduler is planning with a stale forecast
+            description: {{ `The renewable-share forecast used for the latest planning decision is {{ $value | humanizeDuration }} old.` | quote }}
+            runbook_url: {{ printf "%s#carbonschedulerforecaststale" $runbook }}
+        {{- end }}
+        {{- if $a.fallbackRate.enabled }}
+        {{- $w := $a.fallbackRate.window }}
+        {{- $releases := printf "(sum(%s) - (sum(%s offset %s) or vector(0)))" $released $released $w }}
+        - alert: CarbonSchedulerHighFallbackRate
+          # Sum before differencing: every Job has its own series, and increase() would miss each series' first sample.
+          expr: |
+            (
+              (sum({{ $fallback }}) - (sum({{ $fallback }} offset {{ $w }}) or vector(0)))
+                /
+              {{ $releases }}
+            ) > {{ $a.fallbackRate.threshold }}
+            and
+            {{ $releases }} >= {{ $a.fallbackRate.minReleases }}
+          for: {{ $a.fallbackRate.for }}
+          labels:
+            severity: {{ $a.fallbackRate.severity }}
+          annotations:
+            summary: Many Jobs are released fail-open instead of on plan
+            description: {{ printf "{{ $value | humanizePercentage }} of Job releases in the last %s were fallback releases, so the scheduler is not shifting work." $w | quote }}
+            runbook_url: {{ printf "%s#carbonschedulerhighfallbackrate" $runbook }}
+        {{- end }}
+        {{- if $a.apiErrors.enabled }}
+        - alert: CarbonSchedulerEnergyChartsErrors
+          expr: |
+            (sum({{ $apiErrors }}) - (sum({{ $apiErrors }} offset {{ $a.apiErrors.window }}) or vector(0))) >= {{ $a.apiErrors.minErrors }}
+          for: {{ $a.apiErrors.for }}
+          labels:
+            severity: {{ $a.apiErrors.severity }}
+          annotations:
+            summary: Energy-Charts API is failing or rate-limiting the scheduler
+            description: {{ printf "{{ $value }} Energy-Charts requests failed with 5xx, 429 or a network error in the last %s." $a.apiErrors.window | quote }}
+            runbook_url: {{ printf "%s#carbonschedulerenergychartserrors" $runbook }}
+        {{- end }}
+        {{- if $a.jobHeldTooLong.enabled }}
+        - alert: CarbonSchedulerJobHeldTooLong
+          expr: {{ include "carbon-scheduler.alertMetric" (list . "carbon_job_hold_limit_timestamp_seconds") }} < time()
+          for: {{ $a.jobHeldTooLong.for }}
+          labels:
+            severity: {{ $a.jobHeldTooLong.severity }}
+          annotations:
+            summary: A Job is held longer than its max-delay
+            description: {{ `Job {{ $labels.job_name }} is still suspended although creation time + max-delay passed {{ $value | humanizeTimestamp }}.` | quote }}
+            runbook_url: {{ printf "%s#carbonschedulerjobheldtoolong" $runbook }}
+        {{- end }}
+{{- end }}

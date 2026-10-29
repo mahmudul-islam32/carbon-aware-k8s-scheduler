@@ -99,6 +99,45 @@ metrics:
     scrapeTimeout: 10s
     labels: {}
 
+# PrometheusRule alert pack (needs the Prometheus Operator CRDs). Runbooks: docs/RUNBOOKS.md
+alerts:
+  enabled: false
+  # Namespace for the PrometheusRule (defaults to the release namespace)
+  namespace: ""
+  # Extra labels, e.g. the ruleSelector of your Prometheus (release: kube-prometheus-stack)
+  labels: {}
+  # Extra PromQL label matchers added to every metric selector, e.g. 'job="carbon-scheduler-metrics"'
+  selector: ""
+  # Base URL of the runbooks; each alert links to <runbookBaseUrl>#<alert name in lower case>
+  runbookBaseUrl: "https://github.com/mahmudul-islam32/carbon-aware-k8s-scheduler/blob/main/docs/RUNBOOKS.md"
+  forecastStale:
+    enabled: true
+    # Forecast age at the latest planning decision (seconds)
+    maxAgeSeconds: 7200
+    for: 10m
+    severity: warning
+  fallbackRate:
+    enabled: true
+    # Fraction of releases that were fail-open fallbacks
+    threshold: 0.2
+    window: 1h
+    # Ignore windows with fewer releases than this (avoids paging on a single job)
+    minReleases: 5
+    for: 5m
+    severity: warning
+  apiErrors:
+    enabled: true
+    # Energy-Charts 5xx, 429 or network errors within the window
+    minErrors: 3
+    window: 15m
+    for: 1m
+    severity: warning
+  jobHeldTooLong:
+    enabled: true
+    # Grace period after creation + max-delay (covers the release timer interval)
+    for: 5m
+    severity: critical
+
 # Grafana dashboard
 grafana:
   enabled: false

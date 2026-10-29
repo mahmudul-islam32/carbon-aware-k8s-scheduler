@@ -75,3 +75,16 @@ Create the metrics port name
 {{- define "carbon-scheduler.metricsPortName" -}}
 metrics
 {{- end }}
+
+{{/*
+PromQL selector for an alert metric: name plus the optional alerts.selector and extra matchers.
+Usage: include "carbon-scheduler.alertMetric" (list . "metric_name" "extra=\"matcher\"")
+*/}}
+{{- define "carbon-scheduler.alertMetric" -}}
+{{- $root := index . 0 -}}
+{{- $name := index . 1 -}}
+{{- $matchers := list -}}
+{{- with $root.Values.alerts.selector }}{{ $matchers = append $matchers . }}{{ end -}}
+{{- if gt (len .) 2 }}{{ $matchers = append $matchers (index . 2) }}{{ end -}}
+{{- if $matchers }}{{ printf "%s{%s}" $name (join ", " $matchers) }}{{ else }}{{ $name }}{{ end -}}
+{{- end }}

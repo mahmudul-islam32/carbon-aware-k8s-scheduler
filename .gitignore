@@ -34,3 +34,4 @@ data/
 # Helm dependencies
 charts/*/charts/
 charts/*/Chart.lock
+tests/alerts/rendered-rules.yaml

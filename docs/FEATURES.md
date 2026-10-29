@@ -7,8 +7,8 @@
 <p align="center">
   <img alt="Done" src="https://img.shields.io/badge/done-9-16a34a?style=for-the-badge">
   <img alt="Improved" src="https://img.shields.io/badge/improved-2-0d9488?style=for-the-badge">
-  <img alt="New" src="https://img.shields.io/badge/new-7-2563eb?style=for-the-badge">
-  <img alt="Planned" src="https://img.shields.io/badge/planned-16-d97706?style=for-the-badge">
+  <img alt="New" src="https://img.shields.io/badge/new-8-2563eb?style=for-the-badge">
+  <img alt="Planned" src="https://img.shields.io/badge/planned-15-d97706?style=for-the-badge">
 </p>
 
 This is the single source of truth for what the scheduler does today and what comes next.
@@ -20,8 +20,8 @@ can pick one, build it, tick the boxes and flip its status.
 1. [Legend](#legend)
 2. [At a glance](#at-a-glance)
 3. [How the pieces fit](#how-the-pieces-fit)
-4. [Shipped features](#shipped-features) (F-01 to F-19)
-5. [Backlog](#backlog) (F-11, F-20 to F-34)
+4. [Shipped features](#shipped-features) (F-01 to F-19, F-32)
+5. [Backlog](#backlog) (F-11, F-20 to F-31, F-33, F-34)
 6. [Working through the backlog](#working-through-the-backlog)
 
 ---
@@ -74,7 +74,7 @@ can pick one, build it, tick the boxes and flip its status.
 | [F-29](#f-29--kubectl-carbon-plugin) | `kubectl carbon` plugin | Tooling | Could | 🗓️ Planned |
 | [F-30](#f-30--runtime-learning) | Runtime learning | Planning | Could | 🗓️ Planned |
 | [F-31](#f-31--measured-energy-via-kepler) | Measured energy via Kepler | Carbon accounting | Could | 🗓️ Planned |
-| [F-32](#f-32--prometheusrule-alert-pack) | PrometheusRule alert pack | Observability | Should | 🗓️ Planned |
+| [F-32](#f-32--prometheusrule-alert-pack) | PrometheusRule alert pack | Observability | Should | 🆕 New |
 | [F-33](#f-33--end-to-end-tests-on-kind) | End-to-end tests on kind | Tooling | Should | 🗓️ Planned |
 | [F-34](#f-34--release-pipeline) | Release pipeline | Tooling | Should | 🗓️ Planned |
 | [F-11](#f-11--keda-scaledjob-mode) | KEDA ScaledJob mode | Tooling | Could | 🗓️ Planned |
@@ -104,6 +104,7 @@ flowchart LR
     B --> F["F-12<br/>Events"]:::core
     B --> G["F-07 · F-13 · F-19<br/>/metrics /healthz /readyz"]:::obs
     G --> H["F-08<br/>Grafana"]:::obs
+    G --> J["F-32<br/>Alerts + runbooks"]:::obs
     D -. same code .-> I["F-09 · F-17<br/>carbon-sim backtest / plan"]:::tool
 ```
 
@@ -273,7 +274,7 @@ carbon-sim backtest --data data/ --trace trace.json --policies immediate,thresho
 > **As a** platform engineer, **I want** to install the scheduler with one command.
 
 **Acceptance criteria**
-- [x] Deployment, ServiceAccount, least-privilege RBAC (Jobs: get/list/watch/patch, Events: create/patch), optional ServiceMonitor and Grafana dashboard.
+- [x] Deployment, ServiceAccount, least-privilege RBAC (Jobs: get/list/watch/patch, Events: create/patch), optional ServiceMonitor, Grafana dashboard and PrometheusRule ([F-32](#f-32--prometheusrule-alert-pack)).
 - [x] `helm lint` and `helm template` run in CI ([F-18](#f-18--ci-pipeline)).
 - [ ] The chart installs on kind in CI → tracked by [F-33](#f-33--end-to-end-tests-on-kind).
 
@@ -438,6 +439,37 @@ Renewable share forecast until deadline
 
 ---
 
+### F-32 · PrometheusRule alert pack
+
+`🆕 New` · `Should` · `Observability` · [`templates/prometheusrule.yaml`](../charts/carbon-scheduler/templates/prometheusrule.yaml)
+
+> **As an** SRE, **I want** ready-made alerts, **so that** I know when the scheduler silently stops saving CO₂.
+
+```bash
+helm upgrade --install carbon-scheduler ./charts/carbon-scheduler \
+  --set alerts.enabled=true --set alerts.labels.release=kube-prometheus-stack
+```
+
+| Alert | Fires when (defaults, all in `alerts.*`) | Severity |
+|---|---|:---:|
+| `CarbonSchedulerForecastStale` | `carbon_forecast_age_seconds` > 2 h for 10 min | warning |
+| `CarbonSchedulerHighFallbackRate` | > 20 % of releases in 1 h were fallbacks (≥ 5 releases) | warning |
+| `CarbonSchedulerEnergyChartsErrors` | ≥ 3 Energy-Charts 5xx / 429 / network errors in 15 min | warning |
+| `CarbonSchedulerJobHeldTooLong` | A Job is held 5 min past creation + `max-delay` | critical |
+
+The last alert uses a new gauge, `carbon_job_hold_limit_timestamp_seconds{namespace,job_name}`
+(creation + max-delay), which exists only while a Job is held. Deleting a held Job now also clears
+it from `carbon_jobs_held`. Counter-based rules sum the per-Job series before differencing, because
+`increase()` misses the first sample of every new series. The rules are unit-tested with
+`promtool test rules` ([`tests/alerts/`](../tests/alerts)) in CI.
+
+**Acceptance criteria**
+- [x] Optional `PrometheusRule` template in the chart (`alerts.enabled`).
+- [x] Alerts: forecast older than 2 h, fallback release rate > 20 % over 1 h, any Energy-Charts 5xx/429 burst, Job held longer than `max-delay`.
+- [x] Each alert has a runbook paragraph in `docs/` ([`RUNBOOKS.md`](RUNBOOKS.md)).
+
+---
+
 ## Backlog
 
 <p align="center">
@@ -455,7 +487,6 @@ quadrantChart
     quadrant-4 Research
     F-22 Relative deadlines: [0.18, 0.82]
     F-20 Re-plan: [0.42, 0.78]
-    F-32 Alerts: [0.15, 0.55]
     F-34 Release: [0.22, 0.62]
     F-21 Webhook: [0.48, 0.70]
     F-26 Staggering: [0.45, 0.58]
@@ -491,19 +522,6 @@ Absolute deadlines don't work for recurring Jobs: every run would share the same
 - [ ] Unit tests for parsing and for a Job created by a CronJob.
 
 **Touches:** `config.py`, `controller/annotations.py`, `controller/scheduler.py`, `examples/`.
-
----
-
-#### F-32 · PrometheusRule alert pack
-
-`🗓️ Planned` · `Should` · Effort **S** · Impact **Medium**
-
-> **As an** SRE, **I want** ready-made alerts, **so that** I know when the scheduler silently stops saving CO₂.
-
-**Acceptance criteria**
-- [ ] Optional `PrometheusRule` template in the chart (`alerts.enabled`).
-- [ ] Alerts: forecast older than 2 h, fallback release rate > 20 % over 1 h, any Energy-Charts 5xx/429 burst, Job held longer than `max-delay`.
-- [ ] Each alert has a runbook paragraph in `docs/`.
 
 ---
 

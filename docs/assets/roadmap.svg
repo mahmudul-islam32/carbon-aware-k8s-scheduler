@@ -16,20 +16,15 @@
     <rect x="350" y="206" width="26" height="22" rx="6" fill="#16a34a" fill-opacity="0.12" stroke="#16a34a" stroke-opacity="0.6"/>
     <text x="363" y="222" font-size="12" font-weight="800" fill="#16a34a" text-anchor="middle">S</text>
     <rect x="52" y="248" width="336" height="46" rx="10" fill="#16a34a" fill-opacity="0.06" stroke="#16a34a" stroke-opacity="0.3"/>
-    <text x="66" y="276" font-size="12" font-weight="800" fill="#16a34a">F-32</text>
-    <text x="112" y="276" font-size="14" font-weight="600" fill="#0f172a">PrometheusRule alert pack</text>
+    <text x="66" y="276" font-size="12" font-weight="800" fill="#16a34a">F-34</text>
+    <text x="112" y="276" font-size="14" font-weight="600" fill="#0f172a">Image + chart release pipeline</text>
     <rect x="350" y="260" width="26" height="22" rx="6" fill="#16a34a" fill-opacity="0.12" stroke="#16a34a" stroke-opacity="0.6"/>
     <text x="363" y="276" font-size="12" font-weight="800" fill="#16a34a" text-anchor="middle">S</text>
     <rect x="52" y="302" width="336" height="46" rx="10" fill="#16a34a" fill-opacity="0.06" stroke="#16a34a" stroke-opacity="0.3"/>
-    <text x="66" y="330" font-size="12" font-weight="800" fill="#16a34a">F-34</text>
-    <text x="112" y="330" font-size="14" font-weight="600" fill="#0f172a">Image + chart release pipeline</text>
-    <rect x="350" y="314" width="26" height="22" rx="6" fill="#16a34a" fill-opacity="0.12" stroke="#16a34a" stroke-opacity="0.6"/>
-    <text x="363" y="330" font-size="12" font-weight="800" fill="#16a34a" text-anchor="middle">S</text>
-    <rect x="52" y="356" width="336" height="46" rx="10" fill="#16a34a" fill-opacity="0.06" stroke="#16a34a" stroke-opacity="0.3"/>
-    <text x="66" y="384" font-size="12" font-weight="800" fill="#16a34a">F-20</text>
-    <text x="112" y="384" font-size="14" font-weight="600" fill="#0f172a">Re-plan on forecast refresh</text>
-    <rect x="350" y="368" width="26" height="22" rx="6" fill="#d97706" fill-opacity="0.12" stroke="#d97706" stroke-opacity="0.6"/>
-    <text x="363" y="384" font-size="12" font-weight="800" fill="#d97706" text-anchor="middle">M</text>
+    <text x="66" y="330" font-size="12" font-weight="800" fill="#16a34a">F-20</text>
+    <text x="112" y="330" font-size="14" font-weight="600" fill="#0f172a">Re-plan on forecast refresh</text>
+    <rect x="350" y="314" width="26" height="22" rx="6" fill="#d97706" fill-opacity="0.12" stroke="#d97706" stroke-opacity="0.6"/>
+    <text x="363" y="330" font-size="12" font-weight="800" fill="#d97706" text-anchor="middle">M</text>
     <rect x="464" y="116" width="250" height="50" fill="#f8fafc"/>
     <circle cx="448" cy="140" r="14" fill="#2563eb"/><circle cx="448" cy="140" r="6" fill="#ffffff"/>
     <text x="472" y="138" font-size="20" font-weight="900" fill="#2563eb">NEXT</text>

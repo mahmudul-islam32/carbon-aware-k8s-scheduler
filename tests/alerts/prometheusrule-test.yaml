@@ -1,0 +1,141 @@
+# promtool unit tests for the F-32 alert pack (charts/carbon-scheduler/templates/prometheusrule.yaml).
+# rendered-rules.yaml is generated from the chart with default values; see tests/unit/test_alerts.py
+# or the "Alert rules" step in .github/workflows/ci.yml.
+rule_files:
+  - rendered-rules.yaml
+
+evaluation_interval: 1m
+
+tests:
+  # Forecast older than 2 h at the latest planning decision, for 10 min.
+  - interval: 1m
+    input_series:
+      - series: carbon_forecast_age_seconds
+        values: "600x10 8000x20"
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: CarbonSchedulerForecastStale
+        exp_alerts: []
+      - eval_time: 21m
+        alertname: CarbonSchedulerForecastStale
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: Carbon scheduler is planning with a stale forecast
+              description: The renewable-share forecast used for the latest planning decision is 2h 13m 20s old.
+              runbook_url: https://github.com/mahmudul-islam32/carbon-aware-k8s-scheduler/blob/main/docs/RUNBOOKS.md#carbonschedulerforecaststale
+
+  # 10 Jobs released 30 min in, 3 of them fail-open. Every Job has its own series that
+  # starts at 1, which increase() would not count; the rule must still see a 30 % rate.
+  - interval: 1m
+    input_series:
+      - series: carbon_jobs_released_total{namespace="etl", job_name="j0"}
+        values: "_x30 1x80"
+      - series: carbon_jobs_released_total{namespace="etl", job_name="j1"}
+        values: "_x30 1x80"
+      - series: carbon_jobs_released_total{namespace="etl", job_name="j2"}
+        values: "_x30 1x80"
+      - series: carbon_jobs_released_total{namespace="etl", job_name="j3"}
+        values: "_x30 1x80"
+      - series: carbon_jobs_released_total{namespace="etl", job_name="j4"}
+        values: "_x30 1x80"
+      - series: carbon_jobs_released_total{namespace="etl", job_name="j5"}
+        values: "_x30 1x80"
+      - series: carbon_jobs_released_total{namespace="etl", job_name="j6"}
+        values: "_x30 1x80"
+      - series: carbon_jobs_released_total{namespace="etl", job_name="j7"}
+        values: "_x30 1x80"
+      - series: carbon_jobs_released_total{namespace="etl", job_name="j8"}
+        values: "_x30 1x80"
+      - series: carbon_jobs_released_total{namespace="etl", job_name="j9"}
+        values: "_x30 1x80"
+      - series: fallback_releases_total{namespace="etl", job_name="j0"}
+        values: "_x30 1x80"
+      - series: fallback_releases_total{namespace="etl", job_name="j1"}
+        values: "_x30 1x80"
+      - series: fallback_releases_total{namespace="etl", job_name="j2"}
+        values: "_x30 1x80"
+    alert_rule_test:
+      - eval_time: 32m
+        alertname: CarbonSchedulerHighFallbackRate
+        exp_alerts: []
+      - eval_time: 36m
+        alertname: CarbonSchedulerHighFallbackRate
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: Many Jobs are released fail-open instead of on plan
+              description: 30% of Job releases in the last 1h were fallback releases, so the scheduler is not shifting work.
+              runbook_url: https://github.com/mahmudul-islam32/carbon-aware-k8s-scheduler/blob/main/docs/RUNBOOKS.md#carbonschedulerhighfallbackrate
+      # The releases leave the 1 h window, so the alert resolves.
+      - eval_time: 100m
+        alertname: CarbonSchedulerHighFallbackRate
+        exp_alerts: []
+
+  # 1 fallback out of 10 releases (10 %) stays quiet; so do 2 out of 2 (below minReleases).
+  - interval: 1m
+    input_series:
+      - series: carbon_jobs_released_total{namespace="etl"}
+        values: "0x10 10x30"
+      - series: fallback_releases_total{namespace="etl"}
+        values: "0x10 1x30"
+      - series: carbon_jobs_released_total{namespace="ml"}
+        values: "_x50 2x10"
+      - series: fallback_releases_total{namespace="ml"}
+        values: "_x50 2x10"
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: CarbonSchedulerHighFallbackRate
+        exp_alerts: []
+
+  # Energy-Charts 503 burst on a new series, while plenty of 200s stay quiet.
+  - interval: 1m
+    input_series:
+      - series: carbon_api_requests_total{endpoint="ren_share_forecast", status="200"}
+        values: "0+10x40"
+      - series: carbon_api_requests_total{endpoint="ren_share_forecast", status="503"}
+        values: "_x10 4x30"
+      - series: carbon_api_requests_total{endpoint="ren_share_forecast", status="429"}
+        values: "_x35 1x5"
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: CarbonSchedulerEnergyChartsErrors
+        exp_alerts: []
+      - eval_time: 12m
+        alertname: CarbonSchedulerEnergyChartsErrors
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: Energy-Charts API is failing or rate-limiting the scheduler
+              description: 4 Energy-Charts requests failed with 5xx, 429 or a network error in the last 15m.
+              runbook_url: https://github.com/mahmudul-islam32/carbon-aware-k8s-scheduler/blob/main/docs/RUNBOOKS.md#carbonschedulerenergychartserrors
+      # Only the single 429 is inside the 15 min window by now.
+      - eval_time: 38m
+        alertname: CarbonSchedulerEnergyChartsErrors
+        exp_alerts: []
+
+  # A Job whose creation + max-delay was at t=5m is still held; another one is within its limit.
+  - interval: 1m
+    input_series:
+      - series: carbon_job_hold_limit_timestamp_seconds{namespace="etl", job_name="nightly"}
+        values: "300x20"
+      - series: carbon_job_hold_limit_timestamp_seconds{namespace="etl", job_name="fresh"}
+        values: "86400x20"
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: CarbonSchedulerJobHeldTooLong
+        exp_alerts: []
+      - eval_time: 12m
+        alertname: CarbonSchedulerJobHeldTooLong
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              namespace: etl
+              job_name: nightly
+            exp_annotations:
+              summary: A Job is held longer than its max-delay
+              description: Job nightly is still suspended although creation time + max-delay passed 1970-01-01 00:05:00 +0000 UTC.
+              runbook_url: https://github.com/mahmudul-islam32/carbon-aware-k8s-scheduler/blob/main/docs/RUNBOOKS.md#carbonschedulerjobheldtoolong
