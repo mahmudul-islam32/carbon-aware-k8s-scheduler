@@ -9,6 +9,7 @@ All endpoints support country=de (Germany) as the primary use case.
 """
 
 import asyncio
+import time
 from datetime import datetime
 from typing import Any
 
@@ -23,6 +24,7 @@ from carbon_scheduler.grid.models import (
     PublicPower,
     RenewableShareForecast,
 )
+from carbon_scheduler.metrics.prometheus import record_api_request
 
 logger = structlog.get_logger(__name__)
 
@@ -162,7 +164,13 @@ class EnergyChartsClient:
             try:
                 logger.debug("api_request", endpoint=endpoint, params=params, attempt=retries + 1)
 
+                started = time.monotonic()
                 response = await client.get(endpoint, params=params)
+                record_api_request(
+                    endpoint.lstrip("/"),
+                    str(response.status_code),
+                    latency_seconds=time.monotonic() - started,
+                )
 
                 if response.status_code == 429:
                     retry_after_header = response.headers.get("Retry-After")
@@ -200,6 +208,7 @@ class EnergyChartsClient:
                 raise APIError(e.response.status_code, str(e)) from e
 
             except httpx.RequestError as e:
+                record_api_request(endpoint.lstrip("/"), "network_error")
                 retries += 1
                 last_error = e
                 logger.warning(

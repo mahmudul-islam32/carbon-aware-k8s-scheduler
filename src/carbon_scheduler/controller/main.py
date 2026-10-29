@@ -6,11 +6,12 @@ either as a standalone process or within a Kubernetes pod.
 
 import logging
 import sys
-from typing import NoReturn
+from typing import Any, NoReturn
 
 import kopf
 import structlog
 
+from carbon_scheduler import __version__
 from carbon_scheduler.config import get_settings
 from carbon_scheduler.metrics.prometheus import setup_metrics
 
@@ -21,6 +22,7 @@ def configure_logging() -> None:
 
     log_level = getattr(logging, settings.log_level.upper(), logging.INFO)
 
+    processors: list[Any]
     if settings.log_format == "json":
         processors = [
             structlog.stdlib.filter_by_level,
@@ -77,7 +79,7 @@ def run_controller() -> NoReturn:
 
     logger.info(
         "starting_carbon_scheduler",
-        version="0.1.0",
+        version=__version__,
         policy=settings.policy,
         grid_country=settings.grid_country,
         metrics_port=settings.metrics_port,
@@ -89,14 +91,13 @@ def run_controller() -> NoReturn:
     except Exception as e:
         logger.error("metrics_server_failed", error=str(e))
 
-
     kopf.configure(verbose=settings.log_level.upper() == "DEBUG")
 
     try:
+        # Liveness and readiness are served by the metrics server (/healthz, /readyz).
         kopf.run(
             clusterwide=True,
             standalone=True,
-            liveness_endpoint="http://0.0.0.0:8080/healthz",
         )
     except KeyboardInterrupt:
         logger.info("controller_interrupted")
@@ -116,10 +117,9 @@ async def run_controller_async() -> None:
 
     logger.info(
         "starting_carbon_scheduler_async",
-        version="0.1.0",
+        version=__version__,
         policy=settings.policy,
     )
-
 
     await kopf.spawn_tasks(
         clusterwide=True,

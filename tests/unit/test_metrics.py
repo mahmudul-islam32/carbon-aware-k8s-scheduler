@@ -232,18 +232,19 @@ class TestAPIMetrics:
 
     def test_api_latency_histogram(self) -> None:
         """Test API latency histogram observation."""
-        record_api_request("public_power", "success", latency_seconds=0.25)
+        # Use an endpoint label no other test (or the real grid client) records
+        record_api_request("latency_test", "success", latency_seconds=0.25)
 
         count = REGISTRY.get_sample_value(
             "carbon_api_latency_seconds_count",
-            {"endpoint": "public_power"},
+            {"endpoint": "latency_test"},
         )
         assert count == 1.0
 
         # Check it falls in correct bucket
         bucket_250ms = REGISTRY.get_sample_value(
             "carbon_api_latency_seconds_bucket",
-            {"endpoint": "public_power", "le": "0.25"},
+            {"endpoint": "latency_test", "le": "0.25"},
         )
         assert bucket_250ms == 1.0
 
