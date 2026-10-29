@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 634" width="1200" height="634" role="img" aria-label="Roadmap in three waves: now, next, later">
+  <rect width="1200" height="634" rx="20" fill="#f8fafc" stroke="#e2e8f0"/>
+  <g font-family="'Segoe UI', Inter, Helvetica, Arial, sans-serif">
+    <text x="40" y="54" font-size="24" font-weight="800" fill="#0f172a">Roadmap</text>
+    <text x="40" y="80" font-size="14" fill="#475569">The backlog in three waves. Pick from the left; every item has acceptance criteria in FEATURES.md.</text>
+    <path d="M40 140 H1148" stroke="#cbd5e1" stroke-width="4" stroke-linecap="round"/>
+    <path d="M1146 132 l14 8 l-14 8 z" fill="#cbd5e1"/>
+    <rect x="84" y="116" width="250" height="50" fill="#f8fafc"/>
+    <circle cx="68" cy="140" r="14" fill="#16a34a"/><circle cx="68" cy="140" r="6" fill="#ffffff"/>
+    <text x="92" y="138" font-size="20" font-weight="900" fill="#16a34a">NOW</text>
+    <text x="92" y="158" font-size="12.5" fill="#475569">Small, high impact · next 1–2 weeks</text>
+    <rect x="40" y="180" width="360" height="408" rx="16" fill="#ffffff" stroke="#e2e8f0"/>
+    <rect x="52" y="194" width="336" height="46" rx="10" fill="#16a34a" fill-opacity="0.06" stroke="#16a34a" stroke-opacity="0.3"/>
+    <text x="66" y="222" font-size="12" font-weight="800" fill="#16a34a">F-22</text>
+    <text x="112" y="222" font-size="14" font-weight="600" fill="#0f172a">Relative deadlines for CronJobs</text>
+    <rect x="350" y="206" width="26" height="22" rx="6" fill="#16a34a" fill-opacity="0.12" stroke="#16a34a" stroke-opacity="0.6"/>
+    <text x="363" y="222" font-size="12" font-weight="800" fill="#16a34a" text-anchor="middle">S</text>
+    <rect x="52" y="248" width="336" height="46" rx="10" fill="#16a34a" fill-opacity="0.06" stroke="#16a34a" stroke-opacity="0.3"/>
+    <text x="66" y="276" font-size="12" font-weight="800" fill="#16a34a">F-32</text>
+    <text x="112" y="276" font-size="14" font-weight="600" fill="#0f172a">PrometheusRule alert pack</text>
+    <rect x="350" y="260" width="26" height="22" rx="6" fill="#16a34a" fill-opacity="0.12" stroke="#16a34a" stroke-opacity="0.6"/>
+    <text x="363" y="276" font-size="12" font-weight="800" fill="#16a34a" text-anchor="middle">S</text>
+    <rect x="52" y="302" width="336" height="46" rx="10" fill="#16a34a" fill-opacity="0.06" stroke="#16a34a" stroke-opacity="0.3"/>
+    <text x="66" y="330" font-size="12" font-weight="800" fill="#16a34a">F-34</text>
+    <text x="112" y="330" font-size="14" font-weight="600" fill="#0f172a">Image + chart release pipeline</text>
+    <rect x="350" y="314" width="26" height="22" rx="6" fill="#16a34a" fill-opacity="0.12" stroke="#16a34a" stroke-opacity="0.6"/>
+    <text x="363" y="330" font-size="12" font-weight="800" fill="#16a34a" text-anchor="middle">S</text>
+    <rect x="52" y="356" width="336" height="46" rx="10" fill="#16a34a" fill-opacity="0.06" stroke="#16a34a" stroke-opacity="0.3"/>
+    <text x="66" y="384" font-size="12" font-weight="800" fill="#16a34a">F-20</text>
+    <text x="112" y="384" font-size="14" font-weight="600" fill="#0f172a">Re-plan on forecast refresh</text>
+    <rect x="350" y="368" width="26" height="22" rx="6" fill="#d97706" fill-opacity="0.12" stroke="#d97706" stroke-opacity="0.6"/>
+    <text x="363" y="384" font-size="12" font-weight="800" fill="#d97706" text-anchor="middle">M</text>
+    <rect x="464" y="116" width="250" height="50" fill="#f8fafc"/>
+    <circle cx="448" cy="140" r="14" fill="#2563eb"/><circle cx="448" cy="140" r="6" fill="#ffffff"/>
+    <text x="472" y="138" font-size="20" font-weight="900" fill="#2563eb">NEXT</text>
+    <text x="472" y="158" font-size="12.5" fill="#475569">Hardening &amp; scale · next month</text>
+    <rect x="420" y="180" width="360" height="408" rx="16" fill="#ffffff" stroke="#e2e8f0"/>
+    <rect x="432" y="194" width="336" height="46" rx="10" fill="#2563eb" fill-opacity="0.06" stroke="#2563eb" stroke-opacity="0.3"/>
+    <text x="446" y="222" font-size="12" font-weight="800" fill="#2563eb">F-21</text>
+    <text x="492" y="222" font-size="14" font-weight="600" fill="#0f172a">Mutating webhook</text>
+    <rect x="730" y="206" width="26" height="22" rx="6" fill="#d97706" fill-opacity="0.12" stroke="#d97706" stroke-opacity="0.6"/>
+    <text x="743" y="222" font-size="12" font-weight="800" fill="#d97706" text-anchor="middle">M</text>
+    <rect x="432" y="248" width="336" height="46" rx="10" fill="#2563eb" fill-opacity="0.06" stroke="#2563eb" stroke-opacity="0.3"/>
+    <text x="446" y="276" font-size="12" font-weight="800" fill="#2563eb">F-26</text>
+    <text x="492" y="276" font-size="14" font-weight="600" fill="#0f172a">Release staggering</text>
+    <rect x="730" y="260" width="26" height="22" rx="6" fill="#d97706" fill-opacity="0.12" stroke="#d97706" stroke-opacity="0.6"/>
+    <text x="743" y="276" font-size="12" font-weight="800" fill="#d97706" text-anchor="middle">M</text>
+    <rect x="432" y="302" width="336" height="46" rx="10" fill="#2563eb" fill-opacity="0.06" stroke="#2563eb" stroke-opacity="0.3"/>
+    <text x="446" y="330" font-size="12" font-weight="800" fill="#2563eb">F-27</text>
+    <text x="492" y="330" font-size="14" font-weight="600" fill="#0f172a">HA with leader election</text>
+    <rect x="730" y="314" width="26" height="22" rx="6" fill="#d97706" fill-opacity="0.12" stroke="#d97706" stroke-opacity="0.6"/>
+    <text x="743" y="330" font-size="12" font-weight="800" fill="#d97706" text-anchor="middle">M</text>
+    <rect x="432" y="356" width="336" height="46" rx="10" fill="#2563eb" fill-opacity="0.06" stroke="#2563eb" stroke-opacity="0.3"/>
+    <text x="446" y="384" font-size="12" font-weight="800" fill="#2563eb">F-33</text>
+    <text x="492" y="384" font-size="14" font-weight="600" fill="#0f172a">E2E tests on kind in CI</text>
+    <rect x="730" y="368" width="26" height="22" rx="6" fill="#d97706" fill-opacity="0.12" stroke="#d97706" stroke-opacity="0.6"/>
+    <text x="743" y="384" font-size="12" font-weight="800" fill="#d97706" text-anchor="middle">M</text>
+    <rect x="432" y="410" width="336" height="46" rx="10" fill="#2563eb" fill-opacity="0.06" stroke="#2563eb" stroke-opacity="0.3"/>
+    <text x="446" y="438" font-size="12" font-weight="800" fill="#2563eb">F-23</text>
+    <text x="492" y="438" font-size="14" font-weight="600" fill="#0f172a">Lowest-carbon policy</text>
+    <rect x="730" y="422" width="26" height="22" rx="6" fill="#d97706" fill-opacity="0.12" stroke="#d97706" stroke-opacity="0.6"/>
+    <text x="743" y="438" font-size="12" font-weight="800" fill="#d97706" text-anchor="middle">M</text>
+    <rect x="844" y="116" width="250" height="50" fill="#f8fafc"/>
+    <circle cx="828" cy="140" r="14" fill="#7c3aed"/><circle cx="828" cy="140" r="6" fill="#ffffff"/>
+    <text x="852" y="138" font-size="20" font-weight="900" fill="#7c3aed">LATER</text>
+    <text x="852" y="158" font-size="12.5" fill="#475569">Exploration · research track</text>
+    <rect x="800" y="180" width="360" height="408" rx="16" fill="#ffffff" stroke="#e2e8f0"/>
+    <rect x="812" y="194" width="336" height="46" rx="10" fill="#7c3aed" fill-opacity="0.06" stroke="#7c3aed" stroke-opacity="0.3"/>
+    <text x="826" y="222" font-size="12" font-weight="800" fill="#7c3aed">F-11</text>
+    <text x="872" y="222" font-size="14" font-weight="600" fill="#0f172a">KEDA ScaledJob mode</text>
+    <rect x="1110" y="206" width="26" height="22" rx="6" fill="#dc2626" fill-opacity="0.12" stroke="#dc2626" stroke-opacity="0.6"/>
+    <text x="1123" y="222" font-size="12" font-weight="800" fill="#dc2626" text-anchor="middle">L</text>
+    <rect x="812" y="248" width="336" height="46" rx="10" fill="#7c3aed" fill-opacity="0.06" stroke="#7c3aed" stroke-opacity="0.3"/>
+    <text x="826" y="276" font-size="12" font-weight="800" fill="#7c3aed">F-24</text>
+    <text x="872" y="276" font-size="14" font-weight="600" fill="#0f172a">Spatial (multi-region) shifting</text>
+    <rect x="1110" y="260" width="26" height="22" rx="6" fill="#dc2626" fill-opacity="0.12" stroke="#dc2626" stroke-opacity="0.6"/>
+    <text x="1123" y="276" font-size="12" font-weight="800" fill="#dc2626" text-anchor="middle">L</text>
+    <rect x="812" y="302" width="336" height="46" rx="10" fill="#7c3aed" fill-opacity="0.06" stroke="#7c3aed" stroke-opacity="0.3"/>
+    <text x="826" y="330" font-size="12" font-weight="800" fill="#7c3aed">F-25</text>
+    <text x="872" y="330" font-size="14" font-weight="600" fill="#0f172a">Team carbon budgets</text>
+    <rect x="1110" y="314" width="26" height="22" rx="6" fill="#dc2626" fill-opacity="0.12" stroke="#dc2626" stroke-opacity="0.6"/>
+    <text x="1123" y="330" font-size="12" font-weight="800" fill="#dc2626" text-anchor="middle">L</text>
+    <rect x="812" y="356" width="336" height="46" rx="10" fill="#7c3aed" fill-opacity="0.06" stroke="#7c3aed" stroke-opacity="0.3"/>
+    <text x="826" y="384" font-size="12" font-weight="800" fill="#7c3aed">F-28</text>
+    <text x="872" y="384" font-size="14" font-weight="600" fill="#0f172a">More grid data providers</text>
+    <rect x="1110" y="368" width="26" height="22" rx="6" fill="#dc2626" fill-opacity="0.12" stroke="#dc2626" stroke-opacity="0.6"/>
+    <text x="1123" y="384" font-size="12" font-weight="800" fill="#dc2626" text-anchor="middle">L</text>
+    <rect x="812" y="410" width="336" height="46" rx="10" fill="#7c3aed" fill-opacity="0.06" stroke="#7c3aed" stroke-opacity="0.3"/>
+    <text x="826" y="438" font-size="12" font-weight="800" fill="#7c3aed">F-29</text>
+    <text x="872" y="438" font-size="14" font-weight="600" fill="#0f172a">kubectl carbon plugin</text>
+    <rect x="1110" y="422" width="26" height="22" rx="6" fill="#d97706" fill-opacity="0.12" stroke="#d97706" stroke-opacity="0.6"/>
+    <text x="1123" y="438" font-size="12" font-weight="800" fill="#d97706" text-anchor="middle">M</text>
+    <rect x="812" y="464" width="336" height="46" rx="10" fill="#7c3aed" fill-opacity="0.06" stroke="#7c3aed" stroke-opacity="0.3"/>
+    <text x="826" y="492" font-size="12" font-weight="800" fill="#7c3aed">F-30</text>
+    <text x="872" y="492" font-size="14" font-weight="600" fill="#0f172a">Runtime learning</text>
+    <rect x="1110" y="476" width="26" height="22" rx="6" fill="#d97706" fill-opacity="0.12" stroke="#d97706" stroke-opacity="0.6"/>
+    <text x="1123" y="492" font-size="12" font-weight="800" fill="#d97706" text-anchor="middle">M</text>
+    <rect x="812" y="518" width="336" height="46" rx="10" fill="#7c3aed" fill-opacity="0.06" stroke="#7c3aed" stroke-opacity="0.3"/>
+    <text x="826" y="546" font-size="12" font-weight="800" fill="#7c3aed">F-31</text>
+    <text x="872" y="546" font-size="14" font-weight="600" fill="#0f172a">Measured energy via Kepler</text>
+    <rect x="1110" y="530" width="26" height="22" rx="6" fill="#dc2626" fill-opacity="0.12" stroke="#dc2626" stroke-opacity="0.6"/>
+    <text x="1123" y="546" font-size="12" font-weight="800" fill="#dc2626" text-anchor="middle">L</text>
+    <text x="40" y="614" font-size="12" fill="#475569">Effort:</text>
+    <rect x="92" y="599" width="22" height="20" rx="5" fill="#16a34a" fill-opacity="0.12" stroke="#16a34a" stroke-opacity="0.6"/><text x="103" y="614" font-size="11" font-weight="800" fill="#16a34a" text-anchor="middle">S</text><text x="122" y="614" font-size="12" fill="#475569">≤ 2 days</text>
+    <rect x="212" y="599" width="22" height="20" rx="5" fill="#d97706" fill-opacity="0.12" stroke="#d97706" stroke-opacity="0.6"/><text x="223" y="614" font-size="11" font-weight="800" fill="#d97706" text-anchor="middle">M</text><text x="242" y="614" font-size="12" fill="#475569">≤ 1 week</text>
+    <rect x="332" y="599" width="22" height="20" rx="5" fill="#dc2626" fill-opacity="0.12" stroke="#dc2626" stroke-opacity="0.6"/><text x="343" y="614" font-size="11" font-weight="800" fill="#dc2626" text-anchor="middle">L</text><text x="362" y="614" font-size="12" fill="#475569">> 1 week</text>
+  </g>
+</svg>

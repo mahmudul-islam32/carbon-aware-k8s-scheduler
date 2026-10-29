@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 380" width="1200" height="380" role="img" aria-label="Carbon-aware Kubernetes scheduler: hold flexible jobs and release them in the greenest window">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#052e16"/>
+      <stop offset="0.55" stop-color="#14532d"/>
+      <stop offset="1" stop-color="#115e59"/>
+    </linearGradient>
+    <linearGradient id="area" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4ade80" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#4ade80" stop-opacity="0.04"/>
+    </linearGradient>
+    <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="#fde68a"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="380" rx="24" fill="url(#bg)"/>
+  <circle cx="1120" cy="-40" r="180" fill="#22c55e" opacity="0.08"/>
+  <circle cx="80" cy="400" r="160" fill="#2dd4bf" opacity="0.08"/>
+
+  <g font-family="'Segoe UI', Inter, Helvetica, Arial, sans-serif">
+    <text x="56" y="92" fill="#86efac" font-size="15" font-weight="700" letter-spacing="3">KUBERNETES · BATCH · SUSTAINABILITY</text>
+    <text x="56" y="146" fill="#ffffff" font-size="44" font-weight="800">Carbon-Aware</text>
+    <text x="56" y="196" fill="#ffffff" font-size="44" font-weight="800">Batch Scheduler</text>
+    <text x="56" y="238" fill="#d1fae5" font-size="18">Hold flexible Jobs. Release them when the</text>
+    <text x="56" y="262" fill="#d1fae5" font-size="18">German grid is greenest. Never miss a deadline.</text>
+
+    <g font-size="13" font-weight="600">
+      <rect x="56" y="292" width="132" height="32" rx="16" fill="#ffffff" fill-opacity="0.12" stroke="#86efac" stroke-opacity="0.5"/>
+      <text x="122" y="313" fill="#ecfdf5" text-anchor="middle">kopf controller</text>
+      <rect x="198" y="292" width="150" height="32" rx="16" fill="#ffffff" fill-opacity="0.12" stroke="#86efac" stroke-opacity="0.5"/>
+      <text x="273" y="313" fill="#ecfdf5" text-anchor="middle">Energy-Charts API</text>
+      <rect x="358" y="292" width="176" height="32" rx="16" fill="#ffffff" fill-opacity="0.12" stroke="#86efac" stroke-opacity="0.5"/>
+      <text x="446" y="313" fill="#ecfdf5" text-anchor="middle">Prometheus + Grafana</text>
+    </g>
+  </g>
+
+  <!-- chart panel -->
+  <rect x="620" y="40" width="550" height="300" rx="18" fill="#ffffff" fill-opacity="0.06" stroke="#ffffff" stroke-opacity="0.15"/>
+  <g font-family="'Segoe UI', Inter, Helvetica, Arial, sans-serif" font-size="12" fill="#a7f3d0">
+    <text x="640" y="66" font-weight="700" fill="#ecfdf5" font-size="13">Renewable share forecast (24 h)</text>
+    <line x1="660" y1="300" x2="1150" y2="300" stroke="#a7f3d0" stroke-opacity="0.4"/>
+    <text x="660" y="318">00:00</text>
+    <text x="905" y="318" text-anchor="middle">12:00</text>
+    <text x="1150" y="318" text-anchor="end">24:00</text>
+  </g>
+  <path d="M 660.0 225.3 L 665.1 225.0 L 670.2 224.8 L 675.3 224.6 L 680.4 224.5 L 685.5 224.4 L 690.6 224.4 L 695.7 224.4 L 700.8 224.5 L 705.9 224.7 L 711.0 224.9 L 716.1 225.2 L 721.2 225.5 L 726.4 225.8 L 731.5 226.2 L 736.6 226.7 L 741.7 227.2 L 746.8 227.7 L 751.9 228.3 L 757.0 228.9 L 762.1 229.6 L 767.2 230.0 L 772.3 229.9 L 777.4 229.3 L 782.5 228.3 L 787.6 226.7 L 792.7 224.8 L 797.8 222.4 L 802.9 219.6 L 808.0 216.5 L 813.1 213.1 L 818.2 209.4 L 823.3 205.5 L 828.4 201.5 L 833.5 197.3 L 838.6 193.0 L 843.8 188.7 L 848.9 184.5 L 854.0 180.3 L 859.1 176.3 L 864.2 172.4 L 869.3 168.8 L 874.4 165.5 L 879.5 162.5 L 884.6 159.8 L 889.7 157.5 L 894.8 155.6 L 899.9 154.2 L 905.0 153.2 L 910.1 152.7 L 915.2 152.6 L 920.3 153.1 L 925.4 154.0 L 930.5 155.4 L 935.6 157.2 L 940.7 159.4 L 945.8 162.1 L 950.9 165.1 L 956.0 168.5 L 961.1 172.1 L 966.2 176.1 L 971.4 180.2 L 976.5 184.5 L 981.6 189.0 L 986.7 193.5 L 991.8 198.0 L 996.9 202.5 L 1002.0 206.8 L 1007.1 211.1 L 1012.2 215.1 L 1017.3 218.9 L 1022.4 222.4 L 1027.5 225.6 L 1032.6 228.4 L 1037.7 230.8 L 1042.8 232.7 L 1047.9 234.2 L 1053.0 235.2 L 1058.1 235.7 L 1063.2 235.6 L 1068.3 235.1 L 1073.4 234.3 L 1078.5 233.5 L 1083.6 232.7 L 1088.8 231.9 L 1093.9 231.2 L 1099.0 230.5 L 1104.1 229.8 L 1109.2 229.1 L 1114.3 228.5 L 1119.4 227.9 L 1124.5 227.3 L 1129.6 226.8 L 1134.7 226.4 L 1139.8 226.0 L 1144.9 225.6 L 1150.0 225.3 L 1150 300 L 660 300 Z" fill="url(#area)"/>
+  <path d="M 660.0 225.3 L 665.1 225.0 L 670.2 224.8 L 675.3 224.6 L 680.4 224.5 L 685.5 224.4 L 690.6 224.4 L 695.7 224.4 L 700.8 224.5 L 705.9 224.7 L 711.0 224.9 L 716.1 225.2 L 721.2 225.5 L 726.4 225.8 L 731.5 226.2 L 736.6 226.7 L 741.7 227.2 L 746.8 227.7 L 751.9 228.3 L 757.0 228.9 L 762.1 229.6 L 767.2 230.0 L 772.3 229.9 L 777.4 229.3 L 782.5 228.3 L 787.6 226.7 L 792.7 224.8 L 797.8 222.4 L 802.9 219.6 L 808.0 216.5 L 813.1 213.1 L 818.2 209.4 L 823.3 205.5 L 828.4 201.5 L 833.5 197.3 L 838.6 193.0 L 843.8 188.7 L 848.9 184.5 L 854.0 180.3 L 859.1 176.3 L 864.2 172.4 L 869.3 168.8 L 874.4 165.5 L 879.5 162.5 L 884.6 159.8 L 889.7 157.5 L 894.8 155.6 L 899.9 154.2 L 905.0 153.2 L 910.1 152.7 L 915.2 152.6 L 920.3 153.1 L 925.4 154.0 L 930.5 155.4 L 935.6 157.2 L 940.7 159.4 L 945.8 162.1 L 950.9 165.1 L 956.0 168.5 L 961.1 172.1 L 966.2 176.1 L 971.4 180.2 L 976.5 184.5 L 981.6 189.0 L 986.7 193.5 L 991.8 198.0 L 996.9 202.5 L 1002.0 206.8 L 1007.1 211.1 L 1012.2 215.1 L 1017.3 218.9 L 1022.4 222.4 L 1027.5 225.6 L 1032.6 228.4 L 1037.7 230.8 L 1042.8 232.7 L 1047.9 234.2 L 1053.0 235.2 L 1058.1 235.7 L 1063.2 235.6 L 1068.3 235.1 L 1073.4 234.3 L 1078.5 233.5 L 1083.6 232.7 L 1088.8 231.9 L 1093.9 231.2 L 1099.0 230.5 L 1104.1 229.8 L 1109.2 229.1 L 1114.3 228.5 L 1119.4 227.9 L 1124.5 227.3 L 1129.6 226.8 L 1134.7 226.4 L 1139.8 226.0 L 1144.9 225.6 L 1150.0 225.3" fill="none" stroke="#4ade80" stroke-width="3" stroke-linejoin="round"/>
+
+  <!-- submitted job (grey) -->
+  <rect x="700.8" y="244" width="40.8" height="40" rx="8" fill="#94a3b8" fill-opacity="0.85"/>
+  <text x="721.2" y="269" font-family="'Segoe UI', Inter, Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#0f172a" text-anchor="middle">Job</text>
+  <text x="721.2" y="234" font-family="'Segoe UI', Inter, Helvetica, Arial, sans-serif" font-size="11" fill="#e2e8f0" text-anchor="middle">submitted</text>
+
+  <!-- shift arrow -->
+  <path d="M 747.7 262 C 782.5 262, 823.3 262, 886.8 262" fill="none" stroke="#fde68a" stroke-width="2.5" stroke-dasharray="6 5" marker-end="url(#arr)"/>
+  <text x="818.2" y="252" font-family="'Segoe UI', Inter, Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#fde68a" text-anchor="middle">time-shift</text>
+
+  <!-- released job (green) -->
+  <rect x="894.8" y="244" width="40.8" height="40" rx="8" fill="#22c55e" stroke="#bbf7d0" stroke-width="2"/>
+  <text x="915.2" y="269" font-family="'Segoe UI', Inter, Helvetica, Arial, sans-serif" font-size="12" font-weight="800" fill="#052e16" text-anchor="middle">Job</text>
+  <text x="915.2" y="234" font-family="'Segoe UI', Inter, Helvetica, Arial, sans-serif" font-size="11" font-weight="700" fill="#ecfdf5" text-anchor="middle">released · greenest window</text>
+
+  <!-- deadline -->
+  <line x1="1068.3" y1="80" x2="1068.3" y2="300" stroke="#fca5a5" stroke-width="2" stroke-dasharray="4 4"/>
+  <text x="1068.3" y="76" font-family="'Segoe UI', Inter, Helvetica, Arial, sans-serif" font-size="11" font-weight="700" fill="#fca5a5" text-anchor="middle">deadline</text>
+</svg>
