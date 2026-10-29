@@ -4,6 +4,7 @@ This module implements the Kubernetes controller using kopf:
 - F-02: Suspend and release controller
 - F-05: Deadline guarantee and fail-open behavior
 - F-12: Kubernetes Events for state changes
+- F-32: per-job hold limit metric used by the PrometheusRule alert pack
 """
 
 from datetime import UTC, datetime, timedelta
@@ -21,6 +22,7 @@ from carbon_scheduler.config import (
 )
 from carbon_scheduler.controller.annotations import (
     AnnotationError,
+    ParsedAnnotations,
     is_flexible_job,
     parse_annotations,
     parse_iso8601_datetime,
@@ -31,6 +33,7 @@ from carbon_scheduler.metrics.prometheus import (
     record_co2_avoided,
     record_fallback_release,
     record_job_released,
+    set_hold_limit,
     set_ready,
     track_held_job,
     untrack_held_job,
@@ -143,6 +146,21 @@ def _delay_seconds(meta: dict[str, Any], release_time: datetime) -> float | None
     return max(0.0, (release_time - submitted).total_seconds())
 
 
+def _update_hold_limit(
+    scheduler: JobScheduler,
+    parsed: ParsedAnnotations,
+    submitted: datetime | None,
+    namespace: str,
+    name: str,
+) -> None:
+    """Expose when a held job exceeds its max-delay, for the F-32 alert."""
+    max_delay = scheduler.effective_max_delay(parsed)
+    if submitted is None or max_delay is None:
+        set_hold_limit(namespace, name, None)
+        return
+    set_hold_limit(namespace, name, (submitted + max_delay).timestamp())
+
+
 async def handle_job_create(
     spec: dict[str, Any],
     meta: dict[str, Any],
@@ -179,7 +197,7 @@ async def handle_job_create(
     now = datetime.now(UTC)
 
     try:
-        parse_annotations(annotations)
+        parsed = parse_annotations(annotations)
     except AnnotationError as e:
         await emit_event(
             name=name,
@@ -263,6 +281,8 @@ async def handle_job_create(
             "policy": decision.policy_used,
         }
 
+    _update_hold_limit(scheduler, parsed, _submit_time(meta) or now, namespace, name)
+
     planned = decision.planned_start.isoformat() if decision.planned_start else "unknown"
     co2 = decision.annotations_to_set.get(ANNOTATION_CO2_AVOIDED)
     co2_note = f", est. {co2} gCO2 avoided" if co2 else ""
@@ -337,6 +357,7 @@ async def handle_job_timer(
     if not scheduler.should_release_now(parsed, current_time):
         if parsed.planned_start is not None:
             track_held_job(namespace, name)
+            _update_hold_limit(scheduler, parsed, _submit_time(meta), namespace, name)
         return None
 
     patch.setdefault("spec", {})["suspend"] = False
@@ -477,6 +498,23 @@ async def check_release_timer(
         patch=patch,
         body=body,
     )
+
+
+async def handle_job_delete(name: str, namespace: str, **_kwargs: Any) -> None:
+    """Forget a deleted Job so held-job metrics (and the F-32 alerts) don't go stale.
+
+    Args:
+        name: Job name
+        namespace: Job namespace
+    """
+    if untrack_held_job(namespace, name):
+        logger.info("held_job_deleted", job_name=name, namespace=namespace)
+
+
+@kopf.on.delete("batch", "v1", "jobs", optional=True)
+async def on_job_delete(name: str, namespace: str | None, **_kwargs: Any) -> None:
+    """Kopf handler for job deletion; optional, so no finalizer is added."""
+    await handle_job_delete(name=name, namespace=namespace or "default")
 
 
 @kopf.on.startup()

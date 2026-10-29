@@ -6,6 +6,7 @@ helper functions for updating them consistently.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import threading
 from typing import TYPE_CHECKING, Any
@@ -125,6 +126,13 @@ CO2_PLANNED_AVOIDED_GRAMS = Histogram(
     "Estimated CO2 avoided per held job at planning time (grams, ESTIMATE)",
     [LABEL_NAMESPACE],
     buckets=(0.0, 1.0, 5.0, 10.0, 50.0, 100.0, 500.0, 1000.0, 5000.0, float("inf")),
+)
+
+JOB_HOLD_LIMIT_TIMESTAMP = Gauge(
+    "carbon_job_hold_limit_timestamp_seconds",
+    "Unix time at which a held job exceeds its max-delay (creation time + max-delay); "
+    "only present while the job is held and a max-delay applies",
+    [LABEL_NAMESPACE, LABEL_JOB_NAME],
 )
 
 # Readiness flag served at /readyz; set once the controller has initialised.
@@ -273,7 +281,26 @@ def untrack_held_job(namespace: str, job_name: str) -> bool:
         was_held = job_name in jobs
         jobs.discard(job_name)
         JOBS_HELD.labels(namespace=namespace).set(len(jobs))
-        return was_held
+    set_hold_limit(namespace, job_name, None)
+    return was_held
+
+
+def set_hold_limit(namespace: str, job_name: str, limit_timestamp: float | None) -> None:
+    """Expose (or clear) the time after which a held job has exceeded its max-delay.
+
+    The PrometheusRule alert ``CarbonSchedulerJobHeldTooLong`` (F-32) fires when
+    this timestamp is in the past while the job is still held.
+
+    Args:
+        namespace: Kubernetes namespace of the job.
+        job_name: Name of the job.
+        limit_timestamp: Unix time of creation + max-delay, or None to remove the series.
+    """
+    if limit_timestamp is None:
+        with contextlib.suppress(KeyError):
+            JOB_HOLD_LIMIT_TIMESTAMP.remove(namespace, job_name)
+        return
+    JOB_HOLD_LIMIT_TIMESTAMP.labels(namespace=namespace, job_name=job_name).set(limit_timestamp)
 
 
 def record_planned_co2_avoided(namespace: str, grams: float) -> None:
@@ -388,5 +415,7 @@ def reset_jobs_held(namespace: str) -> None:
         namespace: Kubernetes namespace.
     """
     with _held_lock:
-        _held_jobs.pop(namespace, None)
+        jobs = _held_jobs.pop(namespace, set())
     JOBS_HELD.labels(namespace=namespace).set(0)
+    for job_name in jobs:
+        set_hold_limit(namespace, job_name, None)

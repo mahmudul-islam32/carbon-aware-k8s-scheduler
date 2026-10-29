@@ -157,6 +157,10 @@ class JobScheduler:
             logger.warning("invalid_max_delay_setting", value=raw)
             return None
 
+    def effective_max_delay(self, parsed: ParsedAnnotations) -> timedelta | None:
+        """The max-delay that applies to a job: its annotation, else the global setting."""
+        return parsed.max_delay or self._global_max_delay()
+
     def _record_grid_gauges(self, grid_data: GridData, current_time: datetime) -> None:
         """Expose the current renewable share and forecast age as metrics."""
         share = grid_data.get_renewable_share_at(int(current_time.timestamp()))
@@ -256,7 +260,7 @@ class JobScheduler:
         # A max-delay cap tightens the planning horizon: the job must start no later
         # than submit + max_delay, which is modelled as an earlier effective deadline.
         effective_deadline = parsed.deadline
-        max_delay = parsed.max_delay or self._global_max_delay()
+        max_delay = self.effective_max_delay(parsed)
         if max_delay is not None:
             capped = current_time + max_delay + parsed.estimated_runtime + safety_margin
             effective_deadline = min(effective_deadline, capped)

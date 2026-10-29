@@ -9,6 +9,7 @@ from carbon_scheduler.metrics.prometheus import (
     FORECAST_AGE_SECONDS,
     GRID_RENEWABLE_SHARE,
     JOB_DELAY_SECONDS,
+    JOB_HOLD_LIMIT_TIMESTAMP,
     JOBS_HELD,
     JOBS_RELEASED,
     get_jobs_held_count,
@@ -20,6 +21,7 @@ from carbon_scheduler.metrics.prometheus import (
     record_job_released,
     record_planned_co2_avoided,
     reset_jobs_held,
+    set_hold_limit,
     set_ready,
     setup_metrics,
     start_metrics_server,
@@ -42,6 +44,7 @@ __all__ = [
     "API_LATENCY_SECONDS",
     "FORECAST_AGE_SECONDS",
     "CO2_PLANNED_AVOIDED_GRAMS",
+    "JOB_HOLD_LIMIT_TIMESTAMP",
     # Setup and health
     "setup_metrics",
     "start_metrics_server",
@@ -59,5 +62,6 @@ __all__ = [
     "reset_jobs_held",
     "track_held_job",
     "untrack_held_job",
+    "set_hold_limit",
     "record_planned_co2_avoided",
 ]

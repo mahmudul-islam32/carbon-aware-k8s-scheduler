@@ -91,7 +91,7 @@ LANES = [
     ("Observability", "#7c3aed", [
         ("F-07", "Prometheus metrics", "done"), ("F-08", "Grafana dashboard", "done"),
         ("F-13", "Health probes", "new"), ("F-19", "Grid & API metrics", "new"),
-        ("F-32", "Alert rules", "planned")]),
+        ("F-32", "Alert rules", "new")]),
     ("Tooling & delivery", "#db2777", [
         ("F-09", "Backtest CLI", "done"), ("F-10", "Helm chart & RBAC", "done"),
         ("F-17", "Dry-run planner", "new"), ("F-18", "CI pipeline", "new"),
@@ -143,8 +143,8 @@ def feature_map():
 # ---------------------------------------------------------------- roadmap
 WAVES = [
     ("NOW", "Small, high impact · next 1–2 weeks", "#16a34a", [
-        ("F-22", "Relative deadlines for CronJobs", "S"), ("F-32", "PrometheusRule alert pack", "S"),
-        ("F-34", "Image + chart release pipeline", "S"), ("F-20", "Re-plan on forecast refresh", "M")]),
+        ("F-22", "Relative deadlines for CronJobs", "S"), ("F-34", "Image + chart release pipeline", "S"),
+        ("F-20", "Re-plan on forecast refresh", "M")]),
     ("NEXT", "Hardening & scale · next month", "#2563eb", [
         ("F-21", "Mutating webhook", "M"), ("F-26", "Release staggering", "M"),
         ("F-27", "HA with leader election", "M"), ("F-33", "E2E tests on kind in CI", "M"),

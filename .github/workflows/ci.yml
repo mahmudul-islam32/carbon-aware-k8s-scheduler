@@ -44,7 +44,18 @@ jobs:
         run: helm lint charts/carbon-scheduler
 
       - name: Render chart
-        run: helm template carbon-scheduler charts/carbon-scheduler --set metrics.serviceMonitor.enabled=true --set grafana.enabled=true > /dev/null
+        run: helm template carbon-scheduler charts/carbon-scheduler --set metrics.serviceMonitor.enabled=true --set grafana.enabled=true --set alerts.enabled=true > /dev/null
+
+      - name: Alert rules (promtool check and unit tests)
+        env:
+          PROMETHEUS_VERSION: "2.54.1"
+        run: |
+          curl -sSfL "https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz" \
+            | tar xz --strip-components=1 -C /tmp "prometheus-${PROMETHEUS_VERSION}.linux-amd64/promtool"
+          helm template carbon-scheduler charts/carbon-scheduler --set alerts.enabled=true -s templates/prometheusrule.yaml \
+            | sed -n '/^spec:/,$p' | sed '1d; s/^  //' > tests/alerts/rendered-rules.yaml
+          /tmp/promtool check rules tests/alerts/rendered-rules.yaml
+          /tmp/promtool test rules tests/alerts/prometheusrule-test.yaml
 
   docker:
     name: Docker build
