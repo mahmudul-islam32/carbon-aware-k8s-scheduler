@@ -6,17 +6,23 @@ This module contains the core scheduling logic including:
 - Handling fail-open behavior when grid data is unavailable
 """
 
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import structlog
 
-from carbon_scheduler.carbon.live import estimate_avoided_emissions, extract_job_resources
+from carbon_scheduler.carbon.live import (
+    estimate_avoided_emissions,
+    extract_job_resources,
+    mean_share_for_window,
+)
 from carbon_scheduler.config import (
     ANNOTATION_CO2_AVOIDED,
     ANNOTATION_EXPECTED_RENEWABLE_SHARE,
     ANNOTATION_FALLBACK_REASON,
     ANNOTATION_LATEST_START,
+    ANNOTATION_PLANNED_AT,
     ANNOTATION_PLANNED_START,
     ANNOTATION_POLICY_USED,
     Settings,
@@ -32,6 +38,7 @@ from carbon_scheduler.grid import EnergyChartsClient, EnergyChartsError, GridDat
 from carbon_scheduler.metrics.prometheus import (
     record_fallback_release,
     record_planned_co2_avoided,
+    record_replan_decision,
     track_held_job,
     update_forecast_age,
     update_renewable_share,
@@ -96,12 +103,15 @@ class ScheduleDecision:
         latest_start: datetime | None = None,
         expected_renewable_share: float | None = None,
         co2_avoided_grams: float | None = None,
+        planned_at: datetime | None = None,
     ) -> "ScheduleDecision":
         """Create a decision to hold the job until the planned start."""
         annotations: dict[str, str] = {
             ANNOTATION_PLANNED_START: planned_start.isoformat(),
             ANNOTATION_POLICY_USED: policy_used,
         }
+        if planned_at is not None:
+            annotations[ANNOTATION_PLANNED_AT] = planned_at.isoformat()
         if fallback_reason:
             annotations[ANNOTATION_FALLBACK_REASON] = fallback_reason
         if latest_start is not None:
@@ -119,6 +129,32 @@ class ScheduleDecision:
             fallback_reason=fallback_reason,
             annotations_to_set=annotations,
         )
+
+
+@dataclass(frozen=True)
+class ReplanDecision:
+    """Outcome of re-checking a held job against a newer forecast (F-20).
+
+    Attributes:
+        moved: True if the planned start changed.
+        old_start: Planned start before the check.
+        new_start: Planned start after the check (equal to ``old_start`` if kept).
+        old_share_pct: Mean forecast share of the old window, under the new forecast.
+        new_share_pct: Mean forecast share of the new window, under the new forecast.
+        annotations_to_set: Annotations to patch onto the Job.
+    """
+
+    moved: bool
+    old_start: datetime
+    new_start: datetime
+    old_share_pct: float | None
+    new_share_pct: float | None
+    annotations_to_set: dict[str, str]
+
+
+def _as_utc(value: datetime) -> datetime:
+    """Treat naive datetimes as local time and convert to UTC (like the grid cache)."""
+    return value.astimezone(UTC)
 
 
 class JobScheduler:
@@ -377,6 +413,138 @@ class JobScheduler:
             latest_start=latest_feasible_start,
             expected_renewable_share=window.mean_renewable_share_pct,
             co2_avoided_grams=avoided.avoided_gco2 if avoided else None,
+            planned_at=current_time,
+        )
+
+    async def replan(
+        self,
+        job_name: str,
+        job_namespace: str,
+        parsed: ParsedAnnotations,
+        current_time: datetime | None = None,
+        job_spec: dict[str, Any] | None = None,
+        submit_time: datetime | None = None,
+    ) -> ReplanDecision | None:
+        """Re-check a held job's plan when a newer forecast is available (F-20).
+
+        The policy is re-run from ``current_time`` with the recorded ``latest-start``
+        as the hard limit. The plan moves only when the new window's mean renewable
+        share beats the current window's share (both under the new forecast) by more
+        than ``replan_min_improvement_pct``. ``planned-at`` is advanced on every check,
+        so each forecast refresh triggers at most one re-plan.
+
+        Args:
+            job_name: Name of the Kubernetes job
+            job_namespace: Namespace of the job
+            parsed: Parsed annotations of the held job
+            current_time: Current time (defaults to now)
+            job_spec: Job spec, used to re-estimate CO2 avoided
+            submit_time: Job creation time, baseline for the CO2 estimate
+
+        Returns:
+            A ReplanDecision, or None if no check was due or possible.
+        """
+        if not self.settings.replan_enabled or parsed.planned_start is None:
+            return None
+        if current_time is None:
+            current_time = datetime.now(UTC)
+
+        safety_margin = timedelta(minutes=self.settings.deadline_safety_margin_minutes)
+        latest_start = parsed.latest_start or (
+            parsed.deadline - parsed.estimated_runtime - safety_margin
+        )
+        if current_time >= parsed.planned_start or current_time >= latest_start:
+            return None  # due for release; the release path handles it
+
+        policy_name = parsed.policy_override or self.settings.policy
+        if policy_name == "immediate":
+            return None
+
+        grid_data = await self.get_grid_data()
+        if grid_data is None or grid_data.is_degraded:
+            return None  # keep the existing plan; deadlines are still guarded
+        fetched_at = _as_utc(grid_data.fetched_at)
+        if parsed.planned_at is not None and fetched_at <= _as_utc(parsed.planned_at):
+            return None  # this forecast was already used for the current plan
+        forecast = self._grid_data_to_forecast(grid_data)
+        if forecast is None:
+            return None
+
+        threshold_pct = (
+            parsed.renewable_threshold_override
+            if parsed.renewable_threshold_override is not None
+            else self.settings.renewable_threshold_pct
+        )
+        policy = get_policy(
+            policy_name,  # type: ignore[arg-type]  # validated by parse_annotations/Settings
+            config=self._policy_config,
+            threshold_pct=threshold_pct,
+        )
+        # Model latest-start as the deadline so the policy can never pick a later start.
+        job_info = JobInfo(
+            name=job_name,
+            namespace=job_namespace,
+            submit_time=current_time,
+            deadline=latest_start + parsed.estimated_runtime + safety_margin,
+            estimated_runtime=parsed.estimated_runtime,
+        )
+        window = policy.select(job_info, forecast, current_time)
+
+        runtime = parsed.estimated_runtime
+        old_start = parsed.planned_start
+        old_share = mean_share_for_window(forecast, old_start, runtime)
+        new_start = max(window.start, current_time)
+        new_share = mean_share_for_window(forecast, new_start, runtime)
+
+        margin = self.settings.replan_min_improvement_pct
+        moved = (
+            not window.is_fallback
+            and new_start <= latest_start
+            and new_start != old_start
+            and new_share is not None
+            and (old_share is None or new_share - old_share > margin)
+        )
+
+        annotations = {ANNOTATION_PLANNED_AT: current_time.isoformat()}
+        if moved:
+            annotations[ANNOTATION_PLANNED_START] = new_start.isoformat()
+            annotations[ANNOTATION_POLICY_USED] = window.policy_used
+            if new_share is not None:
+                annotations[ANNOTATION_EXPECTED_RENEWABLE_SHARE] = f"{new_share:.1f}"
+            avoided = estimate_avoided_emissions(
+                forecast=forecast,
+                submit_time=submit_time or current_time,
+                planned_start=new_start,
+                runtime=runtime,
+                resources=extract_job_resources(job_spec),
+                fossil_intensity_gco2_kwh=self.settings.fossil_intensity_gco2_kwh,
+                watts_per_cpu_core=self.settings.watts_per_cpu_core,
+                watts_per_gpu=self.settings.watts_per_gpu,
+            )
+            if avoided is not None:
+                annotations[ANNOTATION_CO2_AVOIDED] = f"{avoided.avoided_gco2:.2f}"
+        else:
+            new_start = old_start
+
+        record_replan_decision(job_namespace, moved)
+        logger.info(
+            "job_replan_checked",
+            job_name=job_name,
+            namespace=job_namespace,
+            moved=moved,
+            old_start=old_start.isoformat(),
+            new_start=new_start.isoformat(),
+            old_share=old_share,
+            new_share=new_share if moved else old_share,
+            min_improvement_pct=margin,
+        )
+        return ReplanDecision(
+            moved=moved,
+            old_start=old_start,
+            new_start=new_start,
+            old_share_pct=old_share,
+            new_share_pct=new_share if moved else old_share,
+            annotations_to_set=annotations,
         )
 
     def should_release_now(

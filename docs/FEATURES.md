@@ -7,8 +7,8 @@
 <p align="center">
   <img alt="Done" src="https://img.shields.io/badge/done-9-16a34a?style=for-the-badge">
   <img alt="Improved" src="https://img.shields.io/badge/improved-2-0d9488?style=for-the-badge">
-  <img alt="New" src="https://img.shields.io/badge/new-7-2563eb?style=for-the-badge">
-  <img alt="Planned" src="https://img.shields.io/badge/planned-16-d97706?style=for-the-badge">
+  <img alt="New" src="https://img.shields.io/badge/new-8-2563eb?style=for-the-badge">
+  <img alt="Planned" src="https://img.shields.io/badge/planned-15-d97706?style=for-the-badge">
 </p>
 
 This is the single source of truth for what the scheduler does today and what comes next.
@@ -20,8 +20,8 @@ can pick one, build it, tick the boxes and flip its status.
 1. [Legend](#legend)
 2. [At a glance](#at-a-glance)
 3. [How the pieces fit](#how-the-pieces-fit)
-4. [Shipped features](#shipped-features) (F-01 to F-19)
-5. [Backlog](#backlog) (F-11, F-20 to F-34)
+4. [Shipped features](#shipped-features) (F-01 to F-20)
+5. [Backlog](#backlog) (F-11, F-21 to F-34)
 6. [Working through the backlog](#working-through-the-backlog)
 
 ---
@@ -62,7 +62,7 @@ can pick one, build it, tick the boxes and flip its status.
 | [F-17](#f-17--dry-run-planner-carbon-sim-plan) | Dry-run planner (`carbon-sim plan`) | Tooling | Should | 🆕 New |
 | [F-18](#f-18--ci-pipeline) | CI pipeline | Tooling | Should | 🆕 New |
 | [F-19](#f-19--grid-and-api-observability) | Grid and API observability | Observability | Should | 🆕 New |
-| [F-20](#f-20--re-plan-on-forecast-refresh) | Re-plan on forecast refresh | Grid data | Should | 🗓️ Planned |
+| [F-20](#f-20--re-plan-on-forecast-refresh) | Re-plan on forecast refresh | Grid data | Should | 🆕 New |
 | [F-21](#f-21--mutating-admission-webhook) | Mutating admission webhook | Core control loop | Should | 🗓️ Planned |
 | [F-22](#f-22--relative-deadlines-for-cronjobs) | Relative deadlines for CronJobs | Core control loop | Should | 🗓️ Planned |
 | [F-23](#f-23--lowest-carbon-policy) | Lowest-carbon policy | Planning | Could | 🗓️ Planned |
@@ -292,6 +292,7 @@ now posted to the Kubernetes API through kopf, so they show up in `kubectl descr
 |---|---|---|
 | `JobHeld` | Normal | Job planned for later; message includes planned start, policy and est. CO₂ avoided |
 | `JobReleased` | Normal | Released on plan or immediately by policy |
+| `JobReplanned` | Normal | A newer forecast moved the planned start (F-20); message shows old → new start and share |
 | `FallbackRelease` | Warning | Released because of missing data or the deadline safety margin |
 | `ValidationError` | Warning | Invalid annotations; Job released (fail-open) |
 
@@ -438,6 +439,34 @@ Renewable share forecast until deadline
 
 ---
 
+### F-20 · Re-plan on forecast refresh
+
+`🆕 New` · `Should` · `Grid data` · [`controller/scheduler.py`](../src/carbon_scheduler/controller/scheduler.py)
+
+> **As a** sustainability lead, **I want** held Jobs to move to a better window when the forecast improves, **so that** savings follow the latest data.
+
+On every release-timer tick, if the cached forecast was fetched after `.../planned-at`, the
+policy is re-run from `now` with `latest-start` as the hard limit. Both the current and the new
+window are scored on the **new** forecast; `planned-start` moves only when the new window is greener
+by more than `CARBON_REPLAN_MIN_IMPROVEMENT_PCT` (default `3` percentage points). `planned-at` is
+advanced on every check, moved or kept, so each forecast refresh is evaluated once. Degraded or
+missing data keeps the existing plan, and `CARBON_REPLAN_ENABLED=false` turns the feature off.
+
+```text
+Normal  JobReplanned  Planned start moved 2026-10-29T13:00:00+00:00 → 2026-10-29T08:00:00+00:00
+                      after forecast refresh (renewable share 85.0% → 95.0%)
+```
+
+`carbon_replan_decisions_total{namespace,outcome="moved|kept"}` counts the checks.
+
+**Acceptance criteria**
+- [x] A plan is never moved past `latest-start`.
+- [x] Hysteresis prevents flapping; at most one re-plan per forecast refresh.
+- [x] A `JobReplanned` Event shows old → new start and share.
+- [x] Unit tests with two successive forecasts.
+
+---
+
 ## Backlog
 
 <p align="center">
@@ -454,7 +483,6 @@ quadrantChart
     quadrant-3 Fill-ins
     quadrant-4 Research
     F-22 Relative deadlines: [0.18, 0.82]
-    F-20 Re-plan: [0.42, 0.78]
     F-32 Alerts: [0.15, 0.55]
     F-34 Release: [0.22, 0.62]
     F-21 Webhook: [0.48, 0.70]
@@ -518,26 +546,6 @@ Absolute deadlines don't work for recurring Jobs: every run would share the same
 - [ ] Package and publish the Helm chart (GitHub Pages or OCI on GHCR).
 - [ ] `__version__`, `pyproject.toml` and `Chart.yaml` stay in sync (single source).
 - [ ] GitHub Release notes generated from Conventional Commits.
-
----
-
-#### F-20 · Re-plan on forecast refresh
-
-`🗓️ Planned` · `Should` · Effort **M** · Impact **High**
-
-> **As a** sustainability lead, **I want** held Jobs to move to a better window when the forecast improves, **so that** savings follow the latest data.
-
-Forecasts change every few hours; today a plan is fixed once it is made.
-
-**Design sketch:** in the release timer, if the cached forecast is newer than the plan
-(add a `.../planned-at` annotation), re-run the policy from `now` and move `planned-start` only when
-the new window is greener by more than a hysteresis margin (for example 3 percentage points).
-
-**Acceptance criteria**
-- [ ] A plan is never moved past `latest-start`.
-- [ ] Hysteresis prevents flapping; at most one re-plan per forecast refresh.
-- [ ] A `JobReplanned` Event shows old → new start and share.
-- [ ] Unit tests with two successive forecasts.
 
 ---
 

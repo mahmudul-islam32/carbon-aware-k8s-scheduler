@@ -127,6 +127,12 @@ CO2_PLANNED_AVOIDED_GRAMS = Histogram(
     buckets=(0.0, 1.0, 5.0, 10.0, 50.0, 100.0, 500.0, 1000.0, 5000.0, float("inf")),
 )
 
+REPLAN_DECISIONS = Counter(
+    "carbon_replan_decisions_total",
+    "Re-plan checks of held jobs after a forecast refresh, by outcome (moved or kept)",
+    [LABEL_NAMESPACE, "outcome"],
+)
+
 # Readiness flag served at /readyz; set once the controller has initialised.
 _ready = threading.Event()
 
@@ -329,6 +335,16 @@ def record_co2_avoided(namespace: str, job_name: str, grams: float) -> None:
         grams: Estimated CO2 avoided in grams.
     """
     CO2_AVOIDED_GRAMS.labels(namespace=namespace, job_name=job_name).inc(grams)
+
+
+def record_replan_decision(namespace: str, moved: bool) -> None:
+    """Record the outcome of re-checking a held job against a newer forecast.
+
+    Args:
+        namespace: Kubernetes namespace of the job.
+        moved: True if the planned start was moved, False if the plan was kept.
+    """
+    REPLAN_DECISIONS.labels(namespace=namespace, outcome="moved" if moved else "kept").inc()
 
 
 def update_renewable_share(percent: float) -> None:

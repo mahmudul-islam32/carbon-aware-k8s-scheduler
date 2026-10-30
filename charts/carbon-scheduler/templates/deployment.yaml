@@ -43,6 +43,10 @@ spec:
               value: {{ .Values.config.renewableThresholdPct | quote }}
             - name: CARBON_MAX_DELAY
               value: {{ .Values.config.maxDelay | quote }}
+            - name: CARBON_REPLAN_ENABLED
+              value: {{ .Values.config.replanEnabled | quote }}
+            - name: CARBON_REPLAN_MIN_IMPROVEMENT_PCT
+              value: {{ .Values.config.replanMinImprovementPct | quote }}
             - name: CARBON_GRID_COUNTRY
               value: {{ .Values.config.gridCountry | quote }}
             - name: CARBON_GRID_API_BASE_URL

@@ -79,7 +79,7 @@ LANES = [
         ("F-21", "Mutating webhook", "planned"), ("F-22", "Relative deadlines", "planned"),
         ("F-27", "HA leader election", "planned")]),
     ("Grid data", "#0d9488", [
-        ("F-03", "Energy-Charts client", "done"), ("F-20", "Re-plan on refresh", "planned"),
+        ("F-03", "Energy-Charts client", "done"), ("F-20", "Re-plan on refresh", "new"),
         ("F-28", "More data providers", "planned")]),
     ("Planning", "#2563eb", [
         ("F-04", "Window policies", "done"), ("F-23", "Lowest-carbon policy", "planned"),
@@ -144,7 +144,7 @@ def feature_map():
 WAVES = [
     ("NOW", "Small, high impact · next 1–2 weeks", "#16a34a", [
         ("F-22", "Relative deadlines for CronJobs", "S"), ("F-32", "PrometheusRule alert pack", "S"),
-        ("F-34", "Image + chart release pipeline", "S"), ("F-20", "Re-plan on forecast refresh", "M")]),
+        ("F-34", "Image + chart release pipeline", "S")]),
     ("NEXT", "Hardening & scale · next month", "#2563eb", [
         ("F-21", "Mutating webhook", "M"), ("F-26", "Release staggering", "M"),
         ("F-27", "HA with leader election", "M"), ("F-33", "E2E tests on kind in CI", "M"),

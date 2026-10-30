@@ -48,6 +48,17 @@ class Settings(BaseSettings):
         default="24h",
         description="Maximum time a job may be held after submission (e.g. '24h')",
     )
+    replan_enabled: bool = Field(
+        default=True,
+        description="Re-plan held jobs when a newer forecast is fetched",
+    )
+    replan_min_improvement_pct: float = Field(
+        default=3.0,
+        ge=0,
+        le=100,
+        description="Hysteresis: move a plan only if the new window is greener by more "
+        "than this many percentage points",
+    )
 
     # Live CO2 accounting
     fossil_intensity_gco2_kwh: float = Field(
@@ -127,6 +138,8 @@ ANNOTATION_MAX_DELAY = f"{ANNOTATION_PREFIX}/max-delay"
 # Written by the controller
 ANNOTATION_LATEST_START = f"{ANNOTATION_PREFIX}/latest-start"
 ANNOTATION_EXPECTED_RENEWABLE_SHARE = f"{ANNOTATION_PREFIX}/expected-renewable-share"
+# Re-planning (F-20): when the current plan was made or last checked against a forecast
+ANNOTATION_PLANNED_AT = f"{ANNOTATION_PREFIX}/planned-at"
 
 
 def get_settings() -> Settings:

@@ -4,8 +4,10 @@ This module implements the Kubernetes controller using kopf:
 - F-02: Suspend and release controller
 - F-05: Deadline guarantee and fail-open behavior
 - F-12: Kubernetes Events for state changes
+- F-20: Re-plan held jobs when the forecast is refreshed
 """
 
+import dataclasses
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -133,6 +135,11 @@ def _submit_time(meta: dict[str, Any]) -> datetime | None:
         return parse_iso8601_datetime(str(created))
     except AnnotationError:
         return None
+
+
+def _fmt_share(share: float | None) -> str:
+    """Format a renewable share for Event messages."""
+    return "n/a" if share is None else f"{share:.1f}%"
 
 
 def _delay_seconds(meta: dict[str, Any], release_time: datetime) -> float | None:
@@ -333,6 +340,34 @@ async def handle_job_timer(
 
     scheduler = get_scheduler()
     current_time = datetime.now(UTC)
+
+    replan = await scheduler.replan(
+        job_name=name,
+        job_namespace=namespace,
+        parsed=parsed,
+        current_time=current_time,
+        job_spec=spec,
+        submit_time=_submit_time(meta),
+    )
+    if replan is not None:
+        patch.setdefault("metadata", {}).setdefault("annotations", {}).update(
+            replan.annotations_to_set
+        )
+        if replan.moved:
+            parsed = dataclasses.replace(parsed, planned_start=replan.new_start)
+            annotations = {**annotations, **replan.annotations_to_set}
+            await emit_event(
+                name=name,
+                namespace=namespace,
+                reason="JobReplanned",
+                message=(
+                    f"Planned start moved {replan.old_start.isoformat()} → "
+                    f"{replan.new_start.isoformat()} after forecast refresh "
+                    f"(renewable share {_fmt_share(replan.old_share_pct)} → "
+                    f"{_fmt_share(replan.new_share_pct)})"
+                ),
+                body=body,
+            )
 
     if not scheduler.should_release_now(parsed, current_time):
         if parsed.planned_start is not None:

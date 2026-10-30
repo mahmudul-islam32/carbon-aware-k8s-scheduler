@@ -55,6 +55,10 @@ config:
   renewableThresholdPct: 60
   # Maximum time a job may be held after submission ("" or "0" disables the cap)
   maxDelay: "24h"
+  # Re-plan held jobs when a newer forecast arrives (F-20)
+  replanEnabled: true
+  # Move a plan only if the new window is greener by more than this (percentage points)
+  replanMinImprovementPct: 3
   # Energy-Charts country code
   gridCountry: "de"
   # Base URL for Energy-Charts API
