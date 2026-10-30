@@ -668,6 +668,7 @@ class TestHandleJobCreate:
     def mock_scheduler(self) -> MagicMock:
         """Create a mock scheduler."""
         scheduler = MagicMock(spec=JobScheduler)
+        scheduler.replan = AsyncMock(return_value=None)
         scheduler.calculate_schedule = AsyncMock()
         return scheduler
 
@@ -797,6 +798,7 @@ class TestHandleJobTimer:
     def mock_scheduler(self) -> MagicMock:
         """Create a mock scheduler."""
         scheduler = MagicMock(spec=JobScheduler)
+        scheduler.replan = AsyncMock(return_value=None)
         scheduler.should_release_now = MagicMock(return_value=False)
         return scheduler
 
@@ -1049,6 +1051,7 @@ class TestStateRecovery:
     def mock_scheduler(self) -> MagicMock:
         """Create a mock scheduler."""
         scheduler = MagicMock(spec=JobScheduler)
+        scheduler.replan = AsyncMock(return_value=None)
         scheduler.should_release_now = MagicMock()
         return scheduler
 

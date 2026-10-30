@@ -19,6 +19,7 @@ from carbon_scheduler.config import (
     ANNOTATION_FLEXIBLE,
     ANNOTATION_LATEST_START,
     ANNOTATION_MAX_DELAY,
+    ANNOTATION_PLANNED_AT,
     ANNOTATION_PLANNED_START,
     ANNOTATION_POLICY,
     ANNOTATION_POLICY_USED,
@@ -50,6 +51,7 @@ class ParsedAnnotations:
     renewable_threshold_override: int | None = None
     max_delay: timedelta | None = None
     latest_start: datetime | None = None
+    planned_at: datetime | None = None
 
     @property
     def estimated_runtime_seconds(self) -> float:
@@ -210,6 +212,12 @@ def parse_annotations(annotations: dict[str, Any] | None) -> ParsedAnnotations:
         with contextlib.suppress(AnnotationError):
             latest_start = parse_iso8601_datetime(str(latest_start_str))
 
+    planned_at: datetime | None = None
+    planned_at_str = annotations.get(ANNOTATION_PLANNED_AT)
+    if planned_at_str:
+        with contextlib.suppress(AnnotationError):
+            planned_at = parse_iso8601_datetime(str(planned_at_str))
+
     policy_used = annotations.get(ANNOTATION_POLICY_USED)
     fallback_reason = annotations.get(ANNOTATION_FALLBACK_REASON)
 
@@ -255,6 +263,7 @@ def parse_annotations(annotations: dict[str, Any] | None) -> ParsedAnnotations:
         renewable_threshold_override=threshold_override,
         max_delay=max_delay,
         latest_start=latest_start,
+        planned_at=planned_at,
     )
 
 
