@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "carbon-scheduler"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Carbon-Aware Kubernetes Batch Scheduler"
 readme = "README.md"
 license = "MIT"
@@ -61,6 +61,11 @@ carbon-sim = "carbon_scheduler.sim.cli:main"
 Homepage = "https://github.com/mahmudul-islam32/carbon-aware-k8s-scheduler"
 Repository = "https://github.com/mahmudul-islam32/carbon-aware-k8s-scheduler"
 Documentation = "https://github.com/mahmudul-islam32/carbon-aware-k8s-scheduler/tree/main/docs"
+
+# Single source of truth for the version (F-34); Chart.yaml is kept in sync by
+# `python -m carbon_scheduler.release bump`.
+[tool.hatch.version]
+path = "src/carbon_scheduler/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/carbon_scheduler"]

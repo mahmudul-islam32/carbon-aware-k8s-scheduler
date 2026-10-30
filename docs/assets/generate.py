@@ -95,7 +95,7 @@ LANES = [
     ("Tooling & delivery", "#db2777", [
         ("F-09", "Backtest CLI", "done"), ("F-10", "Helm chart & RBAC", "done"),
         ("F-17", "Dry-run planner", "new"), ("F-18", "CI pipeline", "new"),
-        ("F-33", "E2E tests on kind", "planned"), ("F-34", "Release pipeline", "planned"),
+        ("F-33", "E2E tests on kind", "planned"), ("F-34", "Release pipeline", "new"),
         ("F-29", "kubectl plugin", "planned"), ("F-11", "KEDA mode", "planned")]),
 ]
 def feature_map():
@@ -144,7 +144,7 @@ def feature_map():
 WAVES = [
     ("NOW", "Small, high impact · next 1–2 weeks", "#16a34a", [
         ("F-22", "Relative deadlines for CronJobs", "S"), ("F-32", "PrometheusRule alert pack", "S"),
-        ("F-34", "Image + chart release pipeline", "S"), ("F-20", "Re-plan on forecast refresh", "M")]),
+        ("F-20", "Re-plan on forecast refresh", "M")]),
     ("NEXT", "Hardening & scale · next month", "#2563eb", [
         ("F-21", "Mutating webhook", "M"), ("F-26", "Release staggering", "M"),
         ("F-27", "HA with leader election", "M"), ("F-33", "E2E tests on kind in CI", "M"),

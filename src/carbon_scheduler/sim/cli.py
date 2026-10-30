@@ -16,6 +16,7 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
+from carbon_scheduler import __version__
 from carbon_scheduler.carbon.live import JobResources
 from carbon_scheduler.controller.annotations import (
     AnnotationError,
@@ -83,7 +84,7 @@ def parse_policies(
 
 
 @click.group()
-@click.version_option(version="0.1.0", prog_name="carbon-sim")
+@click.version_option(version=__version__, prog_name="carbon-sim")
 def main() -> None:
     """Carbon-aware scheduler simulation and backtest tool.
 
