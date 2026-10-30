@@ -7,8 +7,8 @@
 <p align="center">
   <img alt="Done" src="https://img.shields.io/badge/done-9-16a34a?style=for-the-badge">
   <img alt="Improved" src="https://img.shields.io/badge/improved-2-0d9488?style=for-the-badge">
-  <img alt="New" src="https://img.shields.io/badge/new-7-2563eb?style=for-the-badge">
-  <img alt="Planned" src="https://img.shields.io/badge/planned-16-d97706?style=for-the-badge">
+  <img alt="New" src="https://img.shields.io/badge/new-8-2563eb?style=for-the-badge">
+  <img alt="Planned" src="https://img.shields.io/badge/planned-15-d97706?style=for-the-badge">
 </p>
 
 This is the single source of truth for what the scheduler does today and what comes next.
@@ -20,8 +20,8 @@ can pick one, build it, tick the boxes and flip its status.
 1. [Legend](#legend)
 2. [At a glance](#at-a-glance)
 3. [How the pieces fit](#how-the-pieces-fit)
-4. [Shipped features](#shipped-features) (F-01 to F-19)
-5. [Backlog](#backlog) (F-11, F-20 to F-34)
+4. [Shipped features](#shipped-features) (F-01 to F-19, F-34)
+5. [Backlog](#backlog) (F-11, F-20 to F-33)
 6. [Working through the backlog](#working-through-the-backlog)
 
 ---
@@ -76,7 +76,7 @@ can pick one, build it, tick the boxes and flip its status.
 | [F-31](#f-31--measured-energy-via-kepler) | Measured energy via Kepler | Carbon accounting | Could | 🗓️ Planned |
 | [F-32](#f-32--prometheusrule-alert-pack) | PrometheusRule alert pack | Observability | Should | 🗓️ Planned |
 | [F-33](#f-33--end-to-end-tests-on-kind) | End-to-end tests on kind | Tooling | Should | 🗓️ Planned |
-| [F-34](#f-34--release-pipeline) | Release pipeline | Tooling | Should | 🗓️ Planned |
+| [F-34](#f-34--release-pipeline) | Release pipeline | Tooling | Should | 🆕 New |
 | [F-11](#f-11--keda-scaledjob-mode) | KEDA ScaledJob mode | Tooling | Could | 🗓️ Planned |
 
 ---
@@ -438,6 +438,33 @@ Renewable share forecast until deadline
 
 ---
 
+### F-34 · Release pipeline
+
+`🆕 New` · `Should` · `Tooling` · [`.github/workflows/release.yml`](../.github/workflows/release.yml) · [`release.py`](../src/carbon_scheduler/release.py)
+
+> **As a** user, **I want** a published image and chart, **so that** `helm install` works without building anything.
+
+```bash
+python -m carbon_scheduler.release bump 0.2.0     # __version__ + Chart.yaml version/appVersion
+# open a PR "chore(release): v0.2.0", merge it, then tag the merge commit:
+git tag v0.2.0 && git push origin v0.2.0
+helm install carbon-scheduler oci://ghcr.io/mahmudul-islam32/charts/carbon-scheduler --version 0.2.0
+```
+
+A `v*` tag runs four jobs: **verify** (tag = `__version__` = `Chart.yaml`, then `pytest`),
+**image** (`linux/amd64` + `linux/arm64`, tags `X.Y.Z` and `X.Y`), **chart** (`helm package` +
+`helm push` to `oci://ghcr.io/mahmudul-islam32/charts`) and **github-release** (notes grouped by
+Conventional Commit type, chart `.tgz` attached; tags with `-` become pre-releases).
+`pyproject.toml` reads the version from `__init__.py`, and CI runs `release check` on every PR.
+
+**Acceptance criteria**
+- [x] On tag `v*`: build multi-arch image, push to `ghcr.io/mahmudul-islam32/carbon-scheduler`.
+- [x] Package and publish the Helm chart (GitHub Pages or OCI on GHCR).
+- [x] `__version__`, `pyproject.toml` and `Chart.yaml` stay in sync (single source).
+- [x] GitHub Release notes generated from Conventional Commits.
+
+---
+
 ## Backlog
 
 <p align="center">
@@ -456,7 +483,6 @@ quadrantChart
     F-22 Relative deadlines: [0.18, 0.82]
     F-20 Re-plan: [0.42, 0.78]
     F-32 Alerts: [0.15, 0.55]
-    F-34 Release: [0.22, 0.62]
     F-21 Webhook: [0.48, 0.70]
     F-26 Staggering: [0.45, 0.58]
     F-27 HA: [0.52, 0.52]
@@ -504,20 +530,6 @@ Absolute deadlines don't work for recurring Jobs: every run would share the same
 - [ ] Optional `PrometheusRule` template in the chart (`alerts.enabled`).
 - [ ] Alerts: forecast older than 2 h, fallback release rate > 20 % over 1 h, any Energy-Charts 5xx/429 burst, Job held longer than `max-delay`.
 - [ ] Each alert has a runbook paragraph in `docs/`.
-
----
-
-#### F-34 · Release pipeline
-
-`🗓️ Planned` · `Should` · Effort **S** · Impact **Medium**
-
-> **As a** user, **I want** a published image and chart, **so that** `helm install` works without building anything.
-
-**Acceptance criteria**
-- [ ] On tag `v*`: build multi-arch image, push to `ghcr.io/mahmudul-islam32/carbon-scheduler`.
-- [ ] Package and publish the Helm chart (GitHub Pages or OCI on GHCR).
-- [ ] `__version__`, `pyproject.toml` and `Chart.yaml` stay in sync (single source).
-- [ ] GitHub Release notes generated from Conventional Commits.
 
 ---
 

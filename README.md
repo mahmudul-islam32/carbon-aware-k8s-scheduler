@@ -8,7 +8,7 @@
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
   <img alt="python" src="https://img.shields.io/badge/python-3.12%2B-informational">
   <img alt="kubernetes" src="https://img.shields.io/badge/kubernetes-1.29%2B-326ce5">
-  <img alt="features" src="https://img.shields.io/badge/features-18%20shipped%20%C2%B7%2016%20planned-16a34a">
+  <img alt="features" src="https://img.shields.io/badge/features-19%20shipped%20%C2%B7%2015%20planned-16a34a">
 </p>
 
 A Kubernetes controller, written in Python with [kopf](https://github.com/nolar/kopf), that holds back flexible batch workloads such as ML training and ETL and releases them when the German electricity grid is greenest. It reads the renewable-share forecast from the public [Energy-Charts API](https://api.energy-charts.info/) run by Fraunhofer ISE, picks a start window within each Job's deadline, and estimates how much CO₂ was avoided compared with starting the Job right away. A Grafana dashboard shows the result.
@@ -38,13 +38,22 @@ The carbon intensity of the German grid swings widely over a day as solar and wi
 | 🔮 | **`carbon-sim plan`:** dry-run a Job against the live forecast | 🆕 |
 | 🧪 | **`carbon-sim backtest`:** replay months of grid data against a job trace | ✅ |
 | 📦 | **Helm chart** with least-privilege RBAC, ServiceMonitor and dashboard | ✅ |
+| 🚀 | **Release pipeline:** a `v*` tag publishes a multi-arch image and an OCI Helm chart on GHCR | 🆕 |
 | 🗓️ | Relative deadlines, re-planning, admission webhook, HA, KEDA mode and more | [Roadmap](docs/FEATURES.md#backlog) |
 
 👉 The full catalogue with user stories, acceptance criteria and the roadmap is in **[docs/FEATURES.md](docs/FEATURES.md)**.
 
 ## Quick start
 
-Prerequisites: Docker, `kind` (or `k3d`), `kubectl`, Helm 3, and internet access to `api.energy-charts.info`.
+Prerequisites: `kubectl`, Helm 3.8+, and internet access to `api.energy-charts.info`.
+
+Install a published release (multi-arch image and chart on GHCR):
+
+```bash
+helm install carbon-scheduler oci://ghcr.io/mahmudul-islam32/charts/carbon-scheduler --version <version>
+```
+
+Or build from source on a local `kind` (or `k3d`) cluster with Docker:
 
 ```bash
 kind create cluster --name carbon
@@ -160,7 +169,23 @@ mypy src
 pytest
 ```
 
-CI runs the same checks plus `helm lint` and a Docker build on every pull request.
+CI runs the same checks plus a version-sync check, `helm lint` and a Docker build on every pull request.
+
+### Releasing
+
+`carbon_scheduler.__version__` is the single source of the version; `pyproject.toml` reads it and
+`Chart.yaml` is kept equal to it.
+
+```bash
+python -m carbon_scheduler.release bump 0.2.0   # updates __init__.py and Chart.yaml
+python -m carbon_scheduler.release check        # fails on drift (also runs in CI)
+# merge the bump, then:
+git tag v0.2.0 && git push origin v0.2.0
+```
+
+The tag runs [`release.yml`](.github/workflows/release.yml): it pushes `ghcr.io/mahmudul-islam32/carbon-scheduler:0.2.0`
+(`linux/amd64`, `linux/arm64`), pushes the chart to `oci://ghcr.io/mahmudul-islam32/charts`, and creates a
+GitHub Release with notes generated from Conventional Commits.
 
 ## Data attribution
 

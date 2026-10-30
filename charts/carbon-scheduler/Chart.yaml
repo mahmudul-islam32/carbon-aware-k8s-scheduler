@@ -5,9 +5,9 @@ type: application
 version: 0.1.0
 appVersion: "0.1.0"
 kubeVersion: ">=1.23.0-0"
-home: https://github.com/mahmudul-islam32/carbon-aware-scheduler
+home: https://github.com/mahmudul-islam32/carbon-aware-k8s-scheduler
 sources:
-  - https://github.com/mahmudul-islam32/carbon-aware-scheduler
+  - https://github.com/mahmudul-islam32/carbon-aware-k8s-scheduler
 keywords:
   - carbon
   - scheduler

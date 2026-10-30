@@ -1,0 +1,143 @@
+name: Release
+
+# Bump the version with `python -m carbon_scheduler.release bump X.Y.Z`, merge,
+# then push a tag `vX.Y.Z`. This workflow publishes the image, the chart and a
+# GitHub Release.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: ghcr.io/mahmudul-islam32/carbon-scheduler
+  CHART_REPO: oci://ghcr.io/mahmudul-islam32/charts
+
+jobs:
+  verify:
+    name: Verify version and tests
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Tag matches __version__, pyproject.toml and Chart.yaml
+        id: version
+        run: echo "version=$(python -m carbon_scheduler.release check --tag "$GITHUB_REF_NAME")" >> "$GITHUB_OUTPUT"
+
+      - name: Pytest
+        run: pytest
+
+  image:
+    name: Multi-arch image
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  chart:
+    name: Helm chart (OCI on GHCR)
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+
+      - name: Lint chart
+        run: helm lint charts/carbon-scheduler
+
+      - name: Package chart
+        run: helm package charts/carbon-scheduler --destination dist
+
+      - name: Push chart
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io --username "${{ github.actor }}" --password-stdin
+          helm push dist/carbon-scheduler-${{ needs.verify.outputs.version }}.tgz "$CHART_REPO"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chart
+          path: dist/*.tgz
+
+  github-release:
+    name: GitHub Release
+    needs: [verify, image, chart]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: pip install -e .
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: chart
+          path: dist
+
+      - name: Release notes from Conventional Commits
+        run: |
+          previous=$(git describe --tags --abbrev=0 --match 'v*' "${GITHUB_REF_NAME}^" 2>/dev/null || true)
+          python -m carbon_scheduler.release notes ${previous:+--from "$previous"} --to "$GITHUB_REF_NAME" --output notes.md
+          cat notes.md
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          prerelease=""
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then prerelease="--prerelease"; fi
+          gh release create "$GITHUB_REF_NAME" dist/*.tgz --title "$GITHUB_REF_NAME" --notes-file notes.md $prerelease
