@@ -499,6 +499,58 @@ def plan_command(
     console.print(table)
 
 
+@main.command("dashboard")
+@click.option("--port", default=8080, show_default=True, help="Port to serve on")
+@click.option("--host", default="127.0.0.1", show_default=True, help="Address to bind")
+@click.option("--speed", default=1200.0, show_default=True,
+              help="Simulated seconds per real second")
+@click.option("--seed", default=7, show_default=True, help="Random seed for the demo")
+@click.option("--live-forecast", is_flag=True,
+              help="Plan demo jobs against the live Energy-Charts forecast")
+@click.option("--country", default="de", show_default=True, help="Energy-Charts country code")
+@click.option("--duration", default=0.0, hidden=True, help="Exit after N seconds (testing)")
+def dashboard_command(
+    port: int,
+    host: str,
+    speed: float,
+    seed: int,
+    live_forecast: bool,
+    country: str,
+    duration: float,
+) -> None:
+    """Run the web dashboard against a simulated cluster (no Kubernetes needed)."""
+    import time
+
+    from carbon_scheduler.dashboard.demo import DemoCluster
+    from carbon_scheduler.metrics.prometheus import set_ready, start_metrics_server
+
+    forecast = asyncio.run(_fetch_live_forecast(country)) if live_forecast else None
+    if forecast is not None and not forecast.points:
+        console.print("[yellow]Live forecast empty, using synthetic data[/yellow]")
+        forecast = None
+
+    demo = DemoCluster(forecast=forecast, speed=speed, seed=seed)
+    demo.state.configure(country=country)
+    demo.start()
+    server = start_metrics_server(port, addr=host)
+    set_ready(True)
+    console.print(
+        f"[bold green]🌱 Dashboard running:[/bold green] http://{host}:{server.server_port}/ "
+        f"[dim](demo, {speed:.0f}x speed, Ctrl+C to stop)[/dim]"
+    )
+    try:
+        if duration > 0:
+            time.sleep(duration)
+        else:
+            while True:
+                time.sleep(3600)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        demo.stop()
+        server.shutdown()
+
+
 async def _fetch_live_forecast(country: str) -> Forecast:
     """Fetch the current renewable share forecast from Energy-Charts."""
     from carbon_scheduler.grid import EnergyChartsClient

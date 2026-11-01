@@ -27,6 +27,8 @@ from carbon_scheduler.controller.annotations import (
 )
 from carbon_scheduler.controller.scheduler import JobScheduler
 from carbon_scheduler.controller.staggering import ReleaseLimiter, is_deadline_critical
+from carbon_scheduler.dashboard.records import record_from_annotations
+from carbon_scheduler.dashboard.state import STATE
 from carbon_scheduler.grid import EnergyChartsClient
 from carbon_scheduler.metrics.prometheus import (
     record_co2_avoided,
@@ -106,6 +108,8 @@ async def emit_event(
         message=message,
         event_type=event_type,
     )
+
+    STATE.add_event(namespace, name, reason, message, event_type)
 
     if body is None:
         return
@@ -214,6 +218,12 @@ async def handle_job_create(
         ] = now.isoformat()
         record_fallback_release(namespace, name)
         record_job_released(namespace, name, adjust_held=False)
+        STATE.upsert_job(
+            record_from_annotations(
+                namespace, name, annotations, "fallback", submitted, meta.get("labels")
+            )
+        )
+        STATE.mark_released(namespace, name, fallback=True, reason="validation_error", at=now)
 
         logger.warning(
             "job_validation_failed_releasing",
@@ -237,6 +247,16 @@ async def handle_job_create(
         patch.setdefault("metadata", {}).setdefault("annotations", {}).update(
             decision.annotations_to_set
         )
+    STATE.upsert_job(
+        record_from_annotations(
+            namespace,
+            name,
+            {**annotations, **decision.annotations_to_set},
+            "held",
+            submitted or now,
+            meta.get("labels"),
+        )
+    )
 
     if decision.should_release:
         patch.setdefault("spec", {})["suspend"] = False
@@ -248,6 +268,13 @@ async def handle_job_create(
             name,
             delay_seconds=_delay_seconds(meta, now),
             adjust_held=False,
+        )
+        STATE.mark_released(
+            namespace,
+            name,
+            fallback=decision.is_fallback,
+            reason=decision.fallback_reason,
+            at=now,
         )
 
         if decision.is_fallback:
@@ -356,6 +383,12 @@ async def handle_job_timer(
     if not scheduler.should_release_now(parsed, current_time):
         if parsed.planned_start is not None:
             track_held_job(namespace, name)
+            # Rebuild the dashboard view after a controller restart
+            STATE.upsert_job(
+                record_from_annotations(
+                    namespace, name, annotations, "held", _submit_time(meta), meta.get("labels")
+                )
+            )
         return None
 
     # F-26: spread planned releases out, but never at the cost of a deadline.
@@ -387,6 +420,18 @@ async def handle_job_timer(
         name,
         delay_seconds=_delay_seconds(meta, current_time),
         adjust_held=False,
+    )
+    STATE.upsert_job(
+        record_from_annotations(
+            namespace, name, annotations, "held", _submit_time(meta), meta.get("labels")
+        )
+    )
+    STATE.mark_released(
+        namespace,
+        name,
+        fallback=is_fallback,
+        reason="deadline_safety_margin" if is_fallback else None,
+        at=current_time,
     )
 
     if is_fallback:
@@ -535,6 +580,7 @@ async def on_startup(**_kwargs: Any) -> None:
     await grid_client.__aenter__()
 
     scheduler.grid_client = grid_client
+    STATE.configure(mode="live", country=settings.grid_country, policy=settings.policy)
     set_ready(True)
 
     logger.info("controller_initialized")

@@ -184,12 +184,22 @@ def is_ready() -> bool:
     return _ready.is_set()
 
 
-def make_app(registry: CollectorRegistry | None = None) -> Any:
-    """Build a WSGI app serving /metrics, /healthz and /readyz."""
+def make_app(registry: CollectorRegistry | None = None, dashboard: bool = True) -> Any:
+    """Build a WSGI app serving /metrics, /healthz, /readyz and the dashboard.
+
+    With ``dashboard`` enabled, ``/`` and ``/dashboard`` serve the web UI and
+    ``/api/state`` its JSON; every other path keeps serving Prometheus metrics.
+    """
     metrics_app = make_wsgi_app(registry if registry is not None else REGISTRY)
 
     def app(environ: dict[str, Any], start_response: Any) -> Any:
         path = environ.get("PATH_INFO", "/")
+        if dashboard:
+            from carbon_scheduler.dashboard import web
+
+            served = web.handle(environ, start_response)
+            if served is not None:
+                return served
         if path == "/healthz":
             start_response("200 OK", [("Content-Type", "text/plain")])
             return [b"ok"]
@@ -207,6 +217,7 @@ def make_app(registry: CollectorRegistry | None = None) -> Any:
 def setup_metrics(
     port: int = DEFAULT_METRICS_PORT,
     registry: CollectorRegistry | None = None,
+    dashboard: bool = True,
 ) -> None:
     """Start the HTTP server for metrics scraping and health probes.
 
@@ -217,19 +228,20 @@ def setup_metrics(
         port: Port to expose metrics on. Defaults to 8000.
         registry: Optional custom registry. Uses default REGISTRY if not provided.
     """
-    start_metrics_server(port, registry=registry)
+    start_metrics_server(port, registry=registry, dashboard=dashboard)
 
 
 def start_metrics_server(
     port: int = DEFAULT_METRICS_PORT,
     addr: str = "0.0.0.0",
     registry: CollectorRegistry | None = None,
+    dashboard: bool = True,
 ) -> WSGIServer:
-    """Start the metrics/health server in a daemon thread and return it."""
+    """Start the metrics/health/dashboard server in a daemon thread and return it."""
     server = make_server(
         addr,
         port,
-        make_app(registry),
+        make_app(registry, dashboard=dashboard),
         server_class=_ThreadingWSGIServer,
         handler_class=_QuietHandler,
     )

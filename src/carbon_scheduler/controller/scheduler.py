@@ -29,6 +29,7 @@ from carbon_scheduler.controller.annotations import (
     parse_annotations,
     parse_duration,
 )
+from carbon_scheduler.dashboard.state import STATE
 from carbon_scheduler.grid import EnergyChartsClient, EnergyChartsError, GridData
 from carbon_scheduler.metrics.prometheus import (
     record_fallback_release,
@@ -327,6 +328,7 @@ class JobScheduler:
 
         self._record_grid_gauges(grid_data, current_time)
         forecast = self._grid_data_to_forecast(grid_data)
+        STATE.set_forecast(forecast, fetched_at=grid_data.fetched_at)
 
         if forecast is None or grid_data.is_degraded:
             logger.warning(
