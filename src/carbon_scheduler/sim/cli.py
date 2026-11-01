@@ -593,6 +593,8 @@ def showcase_command(output: Path, days: int, num_jobs: int, seed: int) -> None:
 @click.option("--live-forecast", is_flag=True,
               help="Plan demo jobs against the live Energy-Charts forecast")
 @click.option("--country", default="de", show_default=True, help="Energy-Charts country code")
+@click.option("--start", "start_str", default=None,
+              help="Simulated start time (ISO 8601), e.g. a sunny June morning")
 @click.option("--duration", default=0.0, hidden=True, help="Exit after N seconds (testing)")
 def dashboard_command(
     port: int,
@@ -601,6 +603,7 @@ def dashboard_command(
     seed: int,
     live_forecast: bool,
     country: str,
+    start_str: str | None,
     duration: float,
 ) -> None:
     """Run the web dashboard against a simulated cluster (no Kubernetes needed)."""
@@ -614,7 +617,11 @@ def dashboard_command(
         console.print("[yellow]Live forecast empty, using synthetic data[/yellow]")
         forecast = None
 
-    demo = DemoCluster(forecast=forecast, speed=speed, seed=seed)
+    try:
+        start = parse_iso8601_datetime(start_str) if start_str else None
+    except AnnotationError as e:
+        raise click.BadParameter(str(e), param_hint="--start") from e
+    demo = DemoCluster(forecast=forecast, speed=speed, seed=seed, start=start)
     demo.state.configure(country=country)
     demo.start()
     server = start_metrics_server(port, addr=host)

@@ -357,13 +357,14 @@ footer a { color: var(--text-2); }
         el("line", { x1: X(Math.max(sub, x0)), x2: X(st), y1: y + laneH / 2, y2: y + laneH / 2, stroke: css("--text-3"), "stroke-width": 1.5, opacity: 0.7 }, g);
         el("circle", { cx: X(Math.max(sub, x0)), cy: y + laneH / 2, r: 2.5, fill: css("--text-3") }, g);
       }
-      el("rect", { x: X(st), y: y + 3, width: Math.max(3, X(en) - X(st)), height: laneH - 6, rx: 3, fill: color }, g);
+      const bx = X(Math.max(st, x0));
+      el("rect", { x: bx, y: y + 3, width: Math.max(3, X(en) - bx), height: laneH - 6, rx: 3, fill: color }, g);
       const dl = t(j.deadline);
       if (dl != null && dl <= x1) {
         el("line", { x1: X(dl), x2: X(dl), y1: y + 1, y2: y + laneH - 1, stroke: css("--text-2"), "stroke-width": 2 }, g);
       }
       const label = el("text", { x: Math.min(X(en) + 6, W - M.r - 4), y: y + laneH / 2 + 4, "text-anchor": X(en) + 140 > W ? "end" : "start" }, g);
-      if (X(en) + 140 > W) label.setAttribute("x", X(st) - 6);
+      if (X(en) + 140 > W) label.setAttribute("x", bx - 6);
       label.textContent = j.name;
       g.addEventListener("mousemove", (ev) => {
         const share = j.expected_share_pct != null ? `${j.expected_share_pct.toFixed(1)}%` : "—";

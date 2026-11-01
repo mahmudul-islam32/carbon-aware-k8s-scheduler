@@ -33,4 +33,4 @@ docker: ## Build the controller image
 	docker build -t carbon-scheduler:dev .
 
 media: ## Regenerate README screenshots, GIF and video (needs Playwright + ffmpeg)
-	python docs/media/record.py
+	node docs/media/record.mjs && python docs/media/terminal.py
