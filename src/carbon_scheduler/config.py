@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     )
 
     # Policy settings
-    policy: Literal["immediate", "threshold", "greenest-window"] = Field(
+    policy: Literal["immediate", "threshold", "greenest-window", "balanced"] = Field(
         default="greenest-window",
         description="Window selection policy",
     )
@@ -43,6 +43,20 @@ class Settings(BaseSettings):
         ge=0,
         le=100,
         description="Threshold policy: release when forecast share >= this value",
+    )
+    delay_penalty_pct_per_hour: float = Field(
+        default=2.0,
+        ge=0,
+        description="Balanced policy: renewable-share points subtracted per hour of delay",
+    )
+    max_releases_per_minute: int = Field(
+        default=0,
+        ge=0,
+        description="Release staggering: max planned releases per minute (0 disables)",
+    )
+    dashboard_enabled: bool = Field(
+        default=True,
+        description="Serve the web dashboard and /api/state on the metrics port",
     )
     max_delay: str = Field(
         default="24h",
@@ -114,6 +128,8 @@ class Settings(BaseSettings):
 ANNOTATION_PREFIX = "carbon-scheduler.mahmudul-islam32.github.io"
 ANNOTATION_FLEXIBLE = f"{ANNOTATION_PREFIX}/flexible"
 ANNOTATION_DEADLINE = f"{ANNOTATION_PREFIX}/deadline"
+# Relative deadline (e.g. "6h"), resolved against the Job's creation time. Handy for CronJobs.
+ANNOTATION_DEADLINE_IN = f"{ANNOTATION_PREFIX}/deadline-in"
 ANNOTATION_ESTIMATED_RUNTIME = f"{ANNOTATION_PREFIX}/estimated-runtime"
 ANNOTATION_PLANNED_START = f"{ANNOTATION_PREFIX}/planned-start"
 ANNOTATION_ACTUAL_START = f"{ANNOTATION_PREFIX}/actual-start"
@@ -124,6 +140,7 @@ ANNOTATION_FALLBACK_REASON = f"{ANNOTATION_PREFIX}/fallback-reason"
 ANNOTATION_POLICY = f"{ANNOTATION_PREFIX}/policy"
 ANNOTATION_RENEWABLE_THRESHOLD = f"{ANNOTATION_PREFIX}/renewable-threshold"
 ANNOTATION_MAX_DELAY = f"{ANNOTATION_PREFIX}/max-delay"
+ANNOTATION_DELAY_PENALTY = f"{ANNOTATION_PREFIX}/delay-penalty"
 # Written by the controller
 ANNOTATION_LATEST_START = f"{ANNOTATION_PREFIX}/latest-start"
 ANNOTATION_EXPECTED_RENEWABLE_SHARE = f"{ANNOTATION_PREFIX}/expected-renewable-share"

@@ -49,8 +49,12 @@ resources:
 
 # Carbon scheduler configuration
 config:
-  # Window selection policy: immediate, threshold, greenest-window
+  # Window selection policy: immediate, threshold, greenest-window, balanced
   policy: greenest-window
+  # Balanced policy: renewable-share points subtracted per hour of delay
+  delayPenaltyPctPerHour: 2
+  # Release staggering: max planned releases per minute (0 disables)
+  maxReleasesPerMinute: 0
   # Threshold policy: release when forecast share >= this value
   renewableThresholdPct: 60
   # Maximum time a job may be held after submission ("" or "0" disables the cap)
@@ -98,6 +102,23 @@ metrics:
     interval: 30s
     scrapeTimeout: 10s
     labels: {}
+
+# Built-in web dashboard, served on the metrics port at / (JSON at /api/state).
+# Reach it with: kubectl port-forward svc/<fullname>-metrics 9090  (e.g. carbon-scheduler-metrics)
+dashboard:
+  enabled: true
+
+# PrometheusRule alert pack (needs the Prometheus Operator CRDs)
+alerts:
+  enabled: false
+  namespace: ""
+  labels: {}
+  # Fire when the forecast is older than this many seconds
+  forecastStaleSeconds: 7200
+  # Fire when more than this fraction of releases are fallbacks (over 1h)
+  fallbackRatio: 0.5
+  # Fire when this many jobs are held in one namespace
+  heldJobsHigh: 50
 
 # Grafana dashboard
 grafana:
