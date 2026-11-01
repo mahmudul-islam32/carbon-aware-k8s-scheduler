@@ -1,0 +1,32 @@
+# Example: balanced policy with a relative deadline and a team label
+# The balanced policy scores each window as
+#   mean renewable share - delay-penalty x hours waited
+# so it skips a slightly greener window that is many hours away.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: feature-refresh
+  namespace: ml
+  labels:
+    team: ml-platform          # shown in the dashboard's "Avoided by team" chart
+  annotations:
+    carbon-scheduler.mahmudul-islam32.github.io/flexible: "true"
+    carbon-scheduler.mahmudul-islam32.github.io/deadline-in: "16h"
+    carbon-scheduler.mahmudul-islam32.github.io/estimated-runtime: "1h30m"
+    carbon-scheduler.mahmudul-islam32.github.io/policy: "balanced"
+    # Give up 3 percentage points of renewable share per hour of waiting
+    carbon-scheduler.mahmudul-islam32.github.io/delay-penalty: "3"
+spec:
+  suspend: true
+  backoffLimit: 1
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: refresh
+          image: busybox:1.36
+          command: ["sh", "-c", "echo refreshing features && sleep 120"]
+          resources:
+            requests:
+              cpu: "12"
+              memory: 8Gi
