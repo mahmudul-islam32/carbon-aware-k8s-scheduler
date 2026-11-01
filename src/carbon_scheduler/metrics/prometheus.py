@@ -127,6 +127,12 @@ CO2_PLANNED_AVOIDED_GRAMS = Histogram(
     buckets=(0.0, 1.0, 5.0, 10.0, 50.0, 100.0, 500.0, 1000.0, 5000.0, float("inf")),
 )
 
+RELEASES_DEFERRED = Counter(
+    "carbon_releases_deferred_total",
+    "Planned releases pushed to a later tick by release staggering",
+    [LABEL_NAMESPACE],
+)
+
 # Readiness flag served at /readyz; set once the controller has initialised.
 _ready = threading.Event()
 
@@ -308,6 +314,11 @@ def record_job_released(
         JOB_DELAY_SECONDS.labels(namespace=namespace, job_name=job_name).observe(
             delay_seconds
         )
+
+
+def record_release_deferred(namespace: str) -> None:
+    """Count a release deferred by staggering (F-26)."""
+    RELEASES_DEFERRED.labels(namespace=namespace).inc()
 
 
 def record_fallback_release(namespace: str, job_name: str) -> None:

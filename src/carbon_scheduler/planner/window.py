@@ -213,6 +213,59 @@ def find_greenest_window(
     return best_window
 
 
+def find_balanced_window(
+    job: JobInfo,
+    forecast: Forecast,
+    current_time: datetime,
+    config: PolicyConfig,
+) -> Window | None:
+    """Find the window with the best trade-off between greenness and delay.
+
+    Each candidate window is scored as::
+
+        score = mean_renewable_share_pct - delay_hours * delay_penalty_pct_per_hour
+
+    so a window that is only slightly greener but many hours later loses to an
+    earlier one. With a penalty of 0 this is identical to the greenest window.
+
+    Args:
+        job: Job information.
+        forecast: Forecast data.
+        current_time: Current time.
+        config: Policy configuration (uses ``delay_penalty_pct_per_hour``).
+
+    Returns:
+        The best-scoring window, or None if no valid window exists.
+    """
+    latest_feasible_start = job.latest_feasible_start(config.safety_margin)
+    if current_time > latest_feasible_start or not forecast.points:
+        return None
+
+    start_time = max(current_time, job.submit_time)
+    candidate_starts = {start_time} | {
+        p.timestamp for p in forecast.points if start_time <= p.timestamp <= latest_feasible_start
+    }
+    deadline_with_margin = job.deadline - config.safety_margin
+
+    best_window: Window | None = None
+    best_score = float("-inf")
+    for start in sorted(candidate_starts):
+        window_end = start + job.estimated_runtime
+        if window_end > deadline_with_margin:
+            continue
+        window_points = forecast.get_points_in_range(start, window_end)
+        if not window_points:
+            continue
+        mean_share = sum(p.renewable_share_pct for p in window_points) / len(window_points)
+        delay_hours = (start - start_time).total_seconds() / 3600
+        score = mean_share - delay_hours * config.delay_penalty_pct_per_hour
+        if score > best_score:
+            best_score = score
+            best_window = Window(start=start, end=window_end, forecast_points=window_points)
+
+    return best_window
+
+
 def select_window(
     job: JobInfo,
     forecast: Forecast | None,
@@ -279,6 +332,13 @@ def select_window(
         )
     elif policy_name == "greenest-window":
         window = find_greenest_window(
+            job=job,
+            forecast=forecast,
+            current_time=current_time,
+            config=config,
+        )
+    elif policy_name == "balanced":
+        window = find_balanced_window(
             job=job,
             forecast=forecast,
             current_time=current_time,

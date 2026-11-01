@@ -26,11 +26,13 @@ from carbon_scheduler.controller.annotations import (
     parse_iso8601_datetime,
 )
 from carbon_scheduler.controller.scheduler import JobScheduler
+from carbon_scheduler.controller.staggering import ReleaseLimiter, is_deadline_critical
 from carbon_scheduler.grid import EnergyChartsClient
 from carbon_scheduler.metrics.prometheus import (
     record_co2_avoided,
     record_fallback_release,
     record_job_released,
+    record_release_deferred,
     set_ready,
     track_held_job,
     untrack_held_job,
@@ -40,6 +42,7 @@ logger = structlog.get_logger(__name__)
 
 _scheduler: JobScheduler | None = None
 _settings: Settings | None = None
+_limiter: ReleaseLimiter | None = None
 
 # Read once at import: kopf needs the timer interval when the handler is registered.
 RELEASE_TIMER_INTERVAL = float(get_settings().reconcile_interval_seconds)
@@ -52,6 +55,20 @@ def get_scheduler() -> JobScheduler:
         _settings = get_settings()
         _scheduler = JobScheduler(settings=_settings)
     return _scheduler
+
+
+def get_limiter() -> ReleaseLimiter:
+    """Get or create the global release limiter (F-26)."""
+    global _limiter
+    if _limiter is None:
+        _limiter = ReleaseLimiter(get_settings().max_releases_per_minute)
+    return _limiter
+
+
+def set_limiter(limiter: ReleaseLimiter | None) -> None:
+    """Replace the global release limiter (for testing)."""
+    global _limiter
+    _limiter = limiter
 
 
 def set_scheduler(scheduler: JobScheduler) -> None:
@@ -177,9 +194,10 @@ async def handle_job_create(
 
     annotations = meta.get("annotations", {})
     now = datetime.now(UTC)
+    submitted = _submit_time(meta)
 
     try:
-        parse_annotations(annotations)
+        parse_annotations(annotations, submit_time=submitted or now)
     except AnnotationError as e:
         await emit_event(
             name=name,
@@ -212,6 +230,7 @@ async def handle_job_create(
         job_namespace=namespace,
         annotations=annotations,
         job_spec=dict(spec),
+        submit_time=submitted,
     )
 
     if decision.annotations_to_set:
@@ -327,7 +346,7 @@ async def handle_job_timer(
         return None
 
     try:
-        parsed = parse_annotations(annotations)
+        parsed = parse_annotations(annotations, submit_time=_submit_time(meta))
     except AnnotationError:
         return None
 
@@ -337,6 +356,18 @@ async def handle_job_timer(
     if not scheduler.should_release_now(parsed, current_time):
         if parsed.planned_start is not None:
             track_held_job(namespace, name)
+        return None
+
+    # F-26: spread planned releases out, but never at the cost of a deadline.
+    settings = _settings or get_settings()
+    safety_margin = timedelta(minutes=settings.deadline_safety_margin_minutes)
+    latest = parsed.latest_start or (parsed.deadline - parsed.estimated_runtime - safety_margin)
+    critical = is_deadline_critical(
+        current_time, latest, timedelta(seconds=settings.reconcile_interval_seconds)
+    )
+    if not get_limiter().try_acquire(current_time, critical=critical):
+        logger.info("release_deferred_staggering", job_name=name, namespace=namespace)
+        record_release_deferred(namespace)
         return None
 
     patch.setdefault("spec", {})["suspend"] = False

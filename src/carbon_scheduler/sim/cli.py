@@ -23,7 +23,7 @@ from carbon_scheduler.controller.annotations import (
     parse_iso8601_datetime,
 )
 from carbon_scheduler.planner.models import Forecast, PolicyConfig
-from carbon_scheduler.planner.policies import PolicyName
+from carbon_scheduler.planner.policies import POLICY_NAMES, PolicyName
 from carbon_scheduler.sim.backtest import Backtest, BacktestResult
 from carbon_scheduler.sim.historical import (
     HistoricalDataFetcher,
@@ -43,7 +43,7 @@ from carbon_scheduler.sim.trace import (
 
 console = Console()
 
-VALID_POLICIES: list[PolicyName] = ["immediate", "threshold", "greenest-window"]
+VALID_POLICIES: list[PolicyName] = list(POLICY_NAMES)
 
 
 def parse_date(
@@ -73,12 +73,7 @@ def parse_policies(
             raise click.BadParameter(
                 f"Unknown policy: {policy_name}. Valid policies: {', '.join(VALID_POLICIES)}"
             )
-        if policy_name == "immediate":
-            policies.append("immediate")
-        elif policy_name == "threshold":
-            policies.append("threshold")
-        elif policy_name == "greenest-window":
-            policies.append("greenest-window")
+        policies.append(POLICY_NAMES[POLICY_NAMES.index(policy_name)])
     return policies
 
 

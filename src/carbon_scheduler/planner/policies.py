@@ -17,12 +17,16 @@ from carbon_scheduler.planner.models import (
 )
 from carbon_scheduler.planner.window import (
     Window,
+    find_balanced_window,
     find_greenest_window,
     find_immediate_window,
     find_threshold_window,
 )
 
-PolicyName = Literal["immediate", "threshold", "greenest-window"]
+PolicyName = Literal["immediate", "threshold", "greenest-window", "balanced"]
+
+#: Every policy name the planner understands, in display order.
+POLICY_NAMES: tuple[PolicyName, ...] = ("immediate", "threshold", "greenest-window", "balanced")
 
 
 class Policy(ABC):
@@ -346,17 +350,62 @@ class GreenestWindowPolicy(Policy):
         return window.to_schedule_window(policy_name=self.name)
 
 
+class BalancedPolicy(Policy):
+    """Policy that trades renewable share against waiting time.
+
+    Scores each feasible window as mean share minus a per-hour delay penalty
+    (``PolicyConfig.delay_penalty_pct_per_hour``). Useful when jobs have long
+    deadlines but owners still prefer results sooner when the gain is small.
+    """
+
+    name: PolicyName = "balanced"
+
+    def __init__(
+        self,
+        config: PolicyConfig | None = None,
+        delay_penalty_pct_per_hour: float | None = None,
+    ) -> None:
+        super().__init__(config)
+        if delay_penalty_pct_per_hour is not None:
+            self.config = self.config.model_copy(
+                update={"delay_penalty_pct_per_hour": float(delay_penalty_pct_per_hour)}
+            )
+
+    def select(
+        self,
+        job: JobInfo,
+        forecast: Forecast | None,
+        current_time: datetime,
+    ) -> ScheduleWindow:
+        """Select the best-scoring window, falling back to an immediate start."""
+        if forecast is None or not forecast.points:
+            return self._create_fallback_window(job, current_time, "no_forecast_data")
+        if forecast.degraded:
+            return self._create_fallback_window(job, current_time, "forecast_data_degraded")
+        if current_time > job.latest_feasible_start(self.config.safety_margin):
+            return self._create_fallback_window(
+                job, current_time, "current_time_past_latest_feasible_start"
+            )
+
+        window = find_balanced_window(job, forecast, current_time, self.config)
+        if window is None:
+            return self._create_fallback_window(job, current_time, "no_balanced_window_found")
+        return window.to_schedule_window(policy_name=self.name)
+
+
 def get_policy(
     name: PolicyName,
     config: PolicyConfig | None = None,
     threshold_pct: float | None = None,
+    delay_penalty_pct_per_hour: float | None = None,
 ) -> Policy:
     """Factory function to get a policy by name.
 
     Args:
-        name: Policy name ('immediate', 'threshold', 'greenest-window').
+        name: Policy name (see ``POLICY_NAMES``).
         config: Optional policy configuration.
         threshold_pct: Optional threshold override for threshold policy.
+        delay_penalty_pct_per_hour: Optional penalty override for the balanced policy.
 
     Returns:
         The requested policy instance.
@@ -368,6 +417,7 @@ def get_policy(
         "immediate": ImmediatePolicy,
         "threshold": ThresholdPolicy,
         "greenest-window": GreenestWindowPolicy,
+        "balanced": BalancedPolicy,
     }
 
     if name not in policies:
@@ -378,5 +428,8 @@ def get_policy(
 
     if name == "threshold" and threshold_pct is not None:
         return ThresholdPolicy(config=config, threshold_pct=threshold_pct)
+
+    if name == "balanced":
+        return BalancedPolicy(config=config, delay_penalty_pct_per_hour=delay_penalty_pct_per_hour)
 
     return policy_class(config=config)
