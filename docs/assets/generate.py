@@ -77,7 +77,7 @@ LANES = [
         ("F-05", "Deadline guarantee", "done"), ("F-12", "Kubernetes Events", "done"),
         ("F-14", "Per-job overrides", "done"), ("F-15", "Max-delay cap", "done"),
         ("F-22", "Relative deadlines", "new"), ("F-21", "Mutating webhook", "planned"),
-        ("F-27", "HA leader election", "planned")]),
+        ("F-27", "HA leader election", "new")]),
     ("Grid data", "#0d9488", [
         ("F-03", "Energy-Charts client", "done"), ("F-38", "Synthetic grid data", "new"),
         ("F-20", "Re-plan on refresh", "new"), ("F-28", "More data providers", "planned")]),
@@ -148,7 +148,7 @@ WAVES = [
         ("F-33", "E2E tests on kind in CI", "M"),
         ("F-21", "Mutating webhook", "M")]),
     ("NEXT", "Hardening & scale · next month", "#2563eb", [
-        ("F-27", "HA with leader election", "M"), ("F-25", "Team carbon budgets", "M"),
+        ("F-25", "Team carbon budgets", "M"),
         ("F-28", "More grid data providers", "L"), ("F-30", "Runtime learning", "M")]),
     ("LATER", "Exploration · research track", "#7c3aed", [
         ("F-11", "KEDA ScaledJob mode", "L"), ("F-24", "Spatial (multi-region) shifting", "L"),

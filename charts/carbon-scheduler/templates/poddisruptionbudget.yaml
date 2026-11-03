@@ -1,0 +1,14 @@
+{{- if and .Values.podDisruptionBudget.enabled (gt (int .Values.replicaCount) 1) -}}
+# F-27: keep at least one replica (the leader or its standby) during node drains.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "carbon-scheduler.fullname" . }}
+  labels:
+    {{- include "carbon-scheduler.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "carbon-scheduler.selectorLabels" . | nindent 6 }}
+{{- end }}

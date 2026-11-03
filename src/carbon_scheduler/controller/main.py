@@ -13,6 +13,7 @@ import structlog
 
 from carbon_scheduler import __version__
 from carbon_scheduler.config import get_settings
+from carbon_scheduler.controller.leader import run_kwargs
 from carbon_scheduler.metrics.prometheus import setup_metrics
 
 
@@ -95,10 +96,15 @@ def run_controller() -> NoReturn:
 
     try:
         # Liveness and readiness are served by the metrics server (/healthz, /readyz).
-        kopf.run(
-            clusterwide=True,
-            standalone=True,
+        # F-27: with leader election only the highest-priority replica acts.
+        peering = run_kwargs(settings)
+        logger.info(
+            "peering_mode",
+            leader_election=settings.leader_election,
+            peering_name=peering.get("peering_name"),
+            priority=peering.get("priority"),
         )
+        kopf.run(clusterwide=True, **peering)
     except KeyboardInterrupt:
         logger.info("controller_interrupted")
     except Exception as e:

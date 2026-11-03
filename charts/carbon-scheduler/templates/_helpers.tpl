@@ -75,3 +75,25 @@ Create the metrics port name
 {{- define "carbon-scheduler.metricsPortName" -}}
 metrics
 {{- end }}
+
+{{/*
+Leader election (F-27): "auto" turns it on when more than one replica runs.
+Renders "true" or "false".
+*/}}
+{{- define "carbon-scheduler.leaderElection" -}}
+{{- $mode := .Values.config.leaderElection | toString -}}
+{{- if eq $mode "auto" -}}
+{{- gt (int .Values.replicaCount) 1 -}}
+{{- else if has $mode (list "true" "false") -}}
+{{- $mode -}}
+{{- else -}}
+{{- fail "config.leaderElection must be auto, true or false" -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Name of the ClusterKopfPeering object shared by the replicas
+*/}}
+{{- define "carbon-scheduler.peeringName" -}}
+{{- default (include "carbon-scheduler.fullname" .) .Values.config.peeringName }}
+{{- end }}

@@ -1,5 +1,7 @@
 # Default values for carbon-scheduler
 
+# Set to 2 (or more) for high availability: replicas elect a leader via kopf peering
+# and only the leader acts; a standby takes over within two reconcile intervals.
 replicaCount: 1
 
 image:
@@ -73,8 +75,10 @@ config:
   deadlineSafetyMarginMinutes: 5
   # How often to reconcile job states (seconds)
   reconcileIntervalSeconds: 60
-  # Enable leader election for HA deployments
-  leaderElection: true
+  # Leader election (kopf peering): auto = on when replicaCount > 1, or true / false
+  leaderElection: auto
+  # ClusterKopfPeering object the replicas share ("" = release fullname)
+  peeringName: ""
   # Live CO2 accounting (estimates): intensity of the non-renewable share
   fossilIntensityGco2Kwh: 400
   # Estimated power draw per requested CPU core / GPU (watts)
@@ -133,10 +137,16 @@ grafana:
   labels:
     grafana_dashboard: "1"
 
+# Keeps one replica up during voluntary disruptions; only rendered when replicaCount > 1
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
 nodeSelector: {}
 
 tolerations: []
 
+# Empty with replicaCount > 1 adds a soft pod anti-affinity across nodes
 affinity: {}
 
 # Extra environment variables

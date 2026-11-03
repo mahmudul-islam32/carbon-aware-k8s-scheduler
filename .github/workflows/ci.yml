@@ -49,6 +49,11 @@ jobs:
       - name: Render chart
         run: helm template carbon-scheduler charts/carbon-scheduler --set metrics.serviceMonitor.enabled=true --set grafana.enabled=true --set alerts.enabled=true > /dev/null
 
+      - name: Render HA (2 replicas, leader election, PDB)
+        run: |
+          helm template carbon-scheduler charts/carbon-scheduler --set replicaCount=2 | grep -q "kind: PodDisruptionBudget"
+          helm template carbon-scheduler charts/carbon-scheduler --set replicaCount=2 | grep -q "kind: ClusterKopfPeering"
+
   docker:
     name: Docker build
     runs-on: ubuntu-latest

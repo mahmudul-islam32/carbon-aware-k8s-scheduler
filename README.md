@@ -102,8 +102,9 @@ The new `balanced` policy keeps 90 % of the maximum saving with 38 % less waitin
 | 🧪 | **Backtesting** on real or synthetic history, with a **self-contained HTML report** | ✅ 🆕 |
 | 🔮 | **`carbon-sim plan`:** dry-run a Job against the live forecast | ✅ |
 | 📦 | **Helm chart** with least-privilege RBAC, ServiceMonitor, alerts and Grafana dashboard | ✅ |
+| 🛡️ | **High availability:** `replicaCount: 2` elects a leader (kopf peering), with a PodDisruptionBudget | 🆕 |
 | 🚀 | **Release pipeline:** a `v*` tag publishes a multi-arch image and an OCI Helm chart on GHCR | 🆕 |
-| 🗺️ | Admission webhook, HA, team budgets, KEDA mode and more | [Roadmap](docs/FEATURES.md#backlog) |
+| 🗺️ | Admission webhook, team budgets, KEDA mode and more | [Roadmap](docs/FEATURES.md#backlog) |
 
 👉 Each feature has a user story, acceptance criteria and tests in **[docs/FEATURES.md](docs/FEATURES.md)**.
 
@@ -164,6 +165,10 @@ helm install carbon-scheduler ./charts/carbon-scheduler \
   --set image.repository=carbon-scheduler --set image.tag=dev
 kubectl port-forward svc/carbon-scheduler-metrics 9090   # dashboard on http://localhost:9090
 ```
+
+For high availability add `--set replicaCount=2`. The replicas elect a leader, a standby takes over
+within two reconcile intervals, and a PodDisruptionBudget keeps one replica up during drains. When
+upgrading an existing release, apply the peering CRD once with `kubectl apply -f charts/carbon-scheduler/crds/`.
 
 Submit a flexible Job:
 
@@ -276,7 +281,9 @@ Environment variables (Helm: `config.*` in [`values.yaml`](charts/carbon-schedul
 | `CARBON_DEADLINE_SAFETY_MARGIN_MINUTES` | `5` | Buffer before the deadline |
 | `CARBON_GRID_COUNTRY` | `de` | Energy-Charts country code |
 | `CARBON_FORECAST_REFRESH_MINUTES` | `30` | Forecast cache TTL |
-| `CARBON_RECONCILE_INTERVAL_SECONDS` | `60` | Release timer interval |
+| `CARBON_RECONCILE_INTERVAL_SECONDS` | `60` | Release timer interval; also the leader's peering lifetime |
+| `CARBON_LEADER_ELECTION` | `false` | Leader election via kopf peering (the chart turns it on when `replicaCount > 1`) |
+| `CARBON_PEERING_NAME` | `carbon-scheduler` | `ClusterKopfPeering` object the replicas share |
 | `CARBON_FOSSIL_INTENSITY_GCO2_KWH` | `400` | Intensity of the non-renewable share (CO₂ estimate) |
 | `CARBON_WATTS_PER_CPU_CORE` / `CARBON_WATTS_PER_GPU` | `10` / `200` | Job power model (CO₂ estimate) |
 | `CARBON_EMISSION_FACTORS_FILE` | `config/emission_factors.yaml` | gCO₂/kWh per production type |

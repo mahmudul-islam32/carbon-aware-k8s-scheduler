@@ -1,3 +1,6 @@
+{{- if and (gt (int .Values.replicaCount) 1) (ne (include "carbon-scheduler.leaderElection" .) "true") -}}
+{{- fail "replicaCount > 1 needs config.leaderElection auto or true, or replicas would patch Jobs twice" -}}
+{{- end -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -64,7 +67,14 @@ spec:
             - name: CARBON_RECONCILE_INTERVAL_SECONDS
               value: {{ .Values.config.reconcileIntervalSeconds | quote }}
             - name: CARBON_LEADER_ELECTION
-              value: {{ .Values.config.leaderElection | quote }}
+              value: {{ include "carbon-scheduler.leaderElection" . | quote }}
+            - name: CARBON_PEERING_NAME
+              value: {{ include "carbon-scheduler.peeringName" . | quote }}
+            # kopf's peering identity; also seeds this replica's leader priority
+            - name: POD_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
             - name: CARBON_FOSSIL_INTENSITY_GCO2_KWH
               value: {{ .Values.config.fossilIntensityGco2Kwh | quote }}
             - name: CARBON_WATTS_PER_CPU_CORE
@@ -114,9 +124,20 @@ spec:
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.affinity }}
+      {{- if .Values.affinity }}
       affinity:
-        {{- toYaml . | nindent 8 }}
+        {{- toYaml .Values.affinity | nindent 8 }}
+      {{- else if gt (int .Values.replicaCount) 1 }}
+      # Spread replicas over nodes so one drain never takes down leader and standby.
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    {{- include "carbon-scheduler.selectorLabels" . | nindent 20 }}
       {{- end }}
       {{- with .Values.tolerations }}
       tolerations:
