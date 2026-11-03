@@ -205,6 +205,7 @@ class TestHandlerFeatures:
     @pytest.mark.asyncio
     async def test_release_on_create_sets_actual_start(self) -> None:
         scheduler = MagicMock(spec=JobScheduler)
+        scheduler.replan = AsyncMock(return_value=None)
         scheduler.calculate_schedule = AsyncMock(
             return_value=ScheduleDecision.release_now(policy_used="immediate")
         )
@@ -224,6 +225,7 @@ class TestHandlerFeatures:
     @pytest.mark.asyncio
     async def test_timer_tracks_held_jobs_and_records_co2_on_release(self) -> None:
         scheduler = MagicMock(spec=JobScheduler)
+        scheduler.replan = AsyncMock(return_value=None)
         scheduler.should_release_now = MagicMock(return_value=False)
         set_scheduler(scheduler)
 

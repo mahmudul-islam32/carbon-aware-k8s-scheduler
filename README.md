@@ -9,7 +9,7 @@
   <img alt="python" src="https://img.shields.io/badge/python-3.12%2B-informational">
   <img alt="kubernetes" src="https://img.shields.io/badge/kubernetes-1.29%2B-326ce5">
   <img alt="tests" src="https://img.shields.io/badge/tests-345%20passing-16a34a">
-  <img alt="features" src="https://img.shields.io/badge/features-28%20shipped%20%C2%B7%2010%20planned-16a34a">
+  <img alt="features" src="https://img.shields.io/badge/features-29%20shipped%20%C2%B7%209%20planned-16a34a">
 </p>
 
 <p align="center">
@@ -92,6 +92,7 @@ The new `balanced` policy keeps 90 % of the maximum saving with 38 % less waitin
 | 🛟 | **Deadline guarantee and fail-open:** no data, bad data or a tight deadline → release now | ✅ |
 | 🎛️ | **Per-job overrides** for policy, threshold, delay penalty and max delay | ✅ |
 | 🚦 | **Release staggering:** cap releases per minute so a green window isn't a thundering herd | 🆕 |
+| 🔄 | **Re-plan on forecast refresh:** held Jobs move to a greener window when the forecast improves | 🆕 |
 | 🌱 | **Live CO₂ estimate** per Job from its CPU/GPU requests, written as an annotation | ✅ |
 | 🖥️ | **Live web dashboard** on the controller: forecast + job Gantt, CO₂ by team, greenest-hours heatmap, Events | 🆕 |
 | 🎮 | **Demo mode:** the same dashboard on a simulated cluster, `carbon-sim dashboard` | 🆕 |
@@ -102,7 +103,7 @@ The new `balanced` policy keeps 90 % of the maximum saving with 38 % less waitin
 | 🔮 | **`carbon-sim plan`:** dry-run a Job against the live forecast | ✅ |
 | 📦 | **Helm chart** with least-privilege RBAC, ServiceMonitor, alerts and Grafana dashboard | ✅ |
 | 🚀 | **Release pipeline:** a `v*` tag publishes a multi-arch image and an OCI Helm chart on GHCR | 🆕 |
-| 🗺️ | Re-planning, admission webhook, HA, team budgets, KEDA mode and more | [Roadmap](docs/FEATURES.md#backlog) |
+| 🗺️ | Admission webhook, HA, team budgets, KEDA mode and more | [Roadmap](docs/FEATURES.md#backlog) |
 
 👉 Each feature has a user story, acceptance criteria and tests in **[docs/FEATURES.md](docs/FEATURES.md)**.
 
@@ -196,7 +197,7 @@ Then see what the controller decided:
 ```bash
 kubectl carbon status            # plan, countdown, expected share, CO₂ avoided
 kubectl carbon explain nightly-etl
-kubectl describe job nightly-etl # Events: JobHeld / JobReleased / FallbackRelease
+kubectl describe job nightly-etl # Events: JobHeld / JobReplanned / JobReleased / FallbackRelease
 ```
 
 `kubectl carbon` is installed with the package (`pip install -e .`). More manifests are in [`examples/`](examples/), including a [CronJob](examples/batch-processing-cronjob.yaml) and the [balanced policy](examples/balanced-policy.yaml).
@@ -217,6 +218,7 @@ All keys use the prefix `carbon-scheduler.mahmudul-islam32.github.io/`.
 | `max-delay` | you, optional | `"8h"` | Never hold longer than this after submit |
 | `planned-start` | controller | ISO 8601 | When the Job will be released |
 | `latest-start` | controller | ISO 8601 | Release no later than this (deadline or max-delay) |
+| `planned-at` | controller | ISO 8601 | When the plan was made or last checked against a fresh forecast |
 | `expected-renewable-share` | controller | `"79.5"` | Mean forecast share in the planned window |
 | `co2-avoided-grams` | controller | `"22.10"` | Estimated CO₂ avoided vs starting now |
 | `policy-used`, `fallback-reason`, `actual-start` | controller | | Audit trail |
@@ -269,6 +271,8 @@ Environment variables (Helm: `config.*` in [`values.yaml`](charts/carbon-schedul
 | `CARBON_DELAY_PENALTY_PCT_PER_HOUR` | `2` | Balanced policy: share points subtracted per hour of delay |
 | `CARBON_MAX_DELAY` | `24h` | Longest a Job may be held after submission (`""` disables) |
 | `CARBON_MAX_RELEASES_PER_MINUTE` | `0` | Release staggering (`0` disables); deadline-critical releases always pass |
+| `CARBON_REPLAN_ENABLED` | `true` | Re-plan held Jobs when a newer forecast is fetched |
+| `CARBON_REPLAN_MIN_IMPROVEMENT_PCT` | `3` | Hysteresis: move a plan only if the new window is greener by more than this many points |
 | `CARBON_DEADLINE_SAFETY_MARGIN_MINUTES` | `5` | Buffer before the deadline |
 | `CARBON_GRID_COUNTRY` | `de` | Energy-Charts country code |
 | `CARBON_FORECAST_REFRESH_MINUTES` | `30` | Forecast cache TTL |

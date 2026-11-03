@@ -37,7 +37,7 @@ flowchart TB
 | [`grid`](../src/carbon_scheduler/grid) | Energy-Charts client for `/ren_share_forecast`, `/signal`, `/public_power`. Caching, `Retry-After` handling, `substitute` flag propagation, request metrics | F-03, F-19 |
 | [`planner`](../src/carbon_scheduler/planner) | Pure policy functions: `immediate`, `threshold`, `greenest-window`, `balanced` | F-04, F-23 |
 | [`carbon`](../src/carbon_scheduler/carbon) | Intensity from generation mix and emission factors; live per-job estimate from renewable share and resource requests | F-06, F-16 |
-| [`controller`](../src/carbon_scheduler/controller) | kopf handlers for Job create/update, release timer, annotation contract (incl. relative deadlines), Event posting, release staggering | F-01, F-02, F-05, F-12, F-14, F-15, F-22, F-26 |
+| [`controller`](../src/carbon_scheduler/controller) | kopf handlers for Job create/update, release timer with re-planning, annotation contract (incl. relative deadlines), Event posting, release staggering | F-01, F-02, F-05, F-12, F-14, F-15, F-20, F-22, F-26 |
 | [`metrics`](../src/carbon_scheduler/metrics) | Prometheus metrics plus the HTTP server for `/metrics`, `/healthz`, `/readyz` and the dashboard | F-07, F-13, F-19 |
 | [`dashboard`](../src/carbon_scheduler/dashboard) | In-memory state fed by the controller, `/api/state`, the single-page UI, and the demo cluster simulator | F-35, F-36 |
 | [`sim`](../src/carbon_scheduler/sim) | `carbon-sim` CLI: fetch or synthesise history, generate traces, backtest, HTML report, showcase, dry-run plan, demo dashboard | F-09, F-17, F-36, F-37, F-38 |
@@ -54,6 +54,7 @@ stateDiagram-v2
     Submitted --> Released: no / degraded data (FallbackRelease)
     Submitted --> Released: policy says now (JobReleased)
     Submitted --> Held: green window later (JobHeld)
+    Held --> Held: newer forecast, greener by > margin (JobReplanned)
     Held --> Released: planned-start reached (JobReleased, CO₂ counted)
     Held --> Released: latest-start reached (FallbackRelease)
     Released --> [*]
@@ -83,6 +84,10 @@ sequenceDiagram
     C->>K: annotate planned-start, latest-start, co2-avoided-grams
     C->>K: Event JobHeld
     loop every reconcile interval
+        opt cached forecast newer than planned-at
+            C->>C: re-run policy from now, capped at latest-start
+            C->>K: move planned-start if greener by > margin, Event JobReplanned
+        end
         C->>C: planned-start or latest-start reached?
     end
     C->>K: patch spec.suspend=false, actual-start
@@ -115,4 +120,4 @@ Backtest policies over at least 3 months of historical German data with syntheti
 | Emission-factor source | IPCC AR5 lifecycle medians, cross-checked with UBA (see YAML) |
 | Should a mutating webhook set `suspend: true`? | Yes, planned as [F-21](FEATURES.md#f-21--mutating-admission-webhook) |
 | How do CronJobs express deadlines? | Open; relative deadlines planned as [F-22](FEATURES.md#f-22--relative-deadlines-for-cronjobs) |
-| Should plans move when the forecast changes? | Open; planned as [F-20](FEATURES.md#f-20--re-plan-on-forecast-refresh) |
+| Should plans move when the forecast changes? | Yes, with a 3-point hysteresis and never past `latest-start` ([F-20](FEATURES.md#f-20--re-plan-on-forecast-refresh)) |

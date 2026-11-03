@@ -80,7 +80,7 @@ LANES = [
         ("F-27", "HA leader election", "planned")]),
     ("Grid data", "#0d9488", [
         ("F-03", "Energy-Charts client", "done"), ("F-38", "Synthetic grid data", "new"),
-        ("F-20", "Re-plan on refresh", "planned"), ("F-28", "More data providers", "planned")]),
+        ("F-20", "Re-plan on refresh", "new"), ("F-28", "More data providers", "planned")]),
     ("Planning", "#2563eb", [
         ("F-04", "Window policies", "done"), ("F-23", "Balanced policy", "new"),
         ("F-26", "Release staggering", "new"), ("F-30", "Runtime learning", "planned"),
@@ -146,7 +146,7 @@ def feature_map():
 WAVES = [
     ("NOW", "Small, high impact · next 1–2 weeks", "#16a34a", [
         ("F-33", "E2E tests on kind in CI", "M"),
-        ("F-20", "Re-plan on forecast refresh", "M"), ("F-21", "Mutating webhook", "M")]),
+        ("F-21", "Mutating webhook", "M")]),
     ("NEXT", "Hardening & scale · next month", "#2563eb", [
         ("F-27", "HA with leader election", "M"), ("F-25", "Team carbon budgets", "M"),
         ("F-28", "More grid data providers", "L"), ("F-30", "Runtime learning", "M")]),
