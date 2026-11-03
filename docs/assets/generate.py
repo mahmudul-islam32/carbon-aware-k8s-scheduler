@@ -76,7 +76,7 @@ LANES = [
         ("F-01", "Annotation contract", "done"), ("F-02", "Suspend & release", "improved"),
         ("F-05", "Deadline guarantee", "done"), ("F-12", "Kubernetes Events", "done"),
         ("F-14", "Per-job overrides", "done"), ("F-15", "Max-delay cap", "done"),
-        ("F-22", "Relative deadlines", "new"), ("F-21", "Mutating webhook", "planned"),
+        ("F-22", "Relative deadlines", "new"), ("F-21", "Mutating webhook", "new"),
         ("F-27", "HA leader election", "planned")]),
     ("Grid data", "#0d9488", [
         ("F-03", "Energy-Charts client", "done"), ("F-38", "Synthetic grid data", "new"),
@@ -145,8 +145,7 @@ def feature_map():
 # ---------------------------------------------------------------- roadmap
 WAVES = [
     ("NOW", "Small, high impact · next 1–2 weeks", "#16a34a", [
-        ("F-33", "E2E tests on kind in CI", "M"),
-        ("F-21", "Mutating webhook", "M")]),
+        ("F-33", "E2E tests on kind in CI", "M")]),
     ("NEXT", "Hardening & scale · next month", "#2563eb", [
         ("F-27", "HA with leader election", "M"), ("F-25", "Team carbon budgets", "M"),
         ("F-28", "More grid data providers", "L"), ("F-30", "Runtime learning", "M")]),

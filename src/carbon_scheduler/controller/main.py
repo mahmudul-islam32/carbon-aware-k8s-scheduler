@@ -13,6 +13,7 @@ import structlog
 
 from carbon_scheduler import __version__
 from carbon_scheduler.config import get_settings
+from carbon_scheduler.controller.webhook import register_webhook
 from carbon_scheduler.metrics.prometheus import setup_metrics
 
 
@@ -92,6 +93,11 @@ def run_controller() -> NoReturn:
         logger.error("metrics_server_failed", error=str(e))
 
     kopf.configure(verbose=settings.log_level.upper() == "DEBUG")
+
+    if settings.webhook_enabled:
+        # F-21: the handler is registered only with a server, or kopf refuses to start.
+        register_webhook()
+        logger.info("webhook_enabled", port=settings.webhook_port)
 
     try:
         # Liveness and readiness are served by the metrics server (/healthz, /readyz).

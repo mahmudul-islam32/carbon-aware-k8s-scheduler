@@ -7,8 +7,8 @@
 <p align="center">
   <img alt="Done" src="https://img.shields.io/badge/done-17-16a34a?style=for-the-badge">
   <img alt="Improved" src="https://img.shields.io/badge/improved-1-0d9488?style=for-the-badge">
-  <img alt="New" src="https://img.shields.io/badge/new-11-2563eb?style=for-the-badge">
-  <img alt="Planned" src="https://img.shields.io/badge/planned-9-d97706?style=for-the-badge">
+  <img alt="New" src="https://img.shields.io/badge/new-12-2563eb?style=for-the-badge">
+  <img alt="Planned" src="https://img.shields.io/badge/planned-8-d97706?style=for-the-badge">
 </p>
 
 This is the single source of truth for what the scheduler does today and what comes next.
@@ -20,8 +20,8 @@ can pick one, build it, tick the boxes and flip its status.
 1. [Legend](#legend)
 2. [At a glance](#at-a-glance)
 3. [How the pieces fit](#how-the-pieces-fit)
-4. [Shipped features](#shipped-features) (F-01 to F-20, F-22, F-23, F-26, F-29, F-32, F-34 to F-38)
-5. [Backlog](#backlog) (F-11, F-21, F-24, F-25, F-27, F-28, F-30, F-31, F-33)
+4. [Shipped features](#shipped-features) (F-01 to F-23, F-26, F-29, F-32, F-34 to F-38)
+5. [Backlog](#backlog) (F-11, F-24, F-25, F-27, F-28, F-30, F-31, F-33)
 6. [Working through the backlog](#working-through-the-backlog)
 
 ---
@@ -63,6 +63,7 @@ can pick one, build it, tick the boxes and flip its status.
 | [F-18](#f-18--ci-pipeline) | CI pipeline | Tooling | Should | ✅ Done |
 | [F-19](#f-19--grid-and-api-observability) | Grid and API observability | Observability | Should | ✅ Done |
 | [F-20](#f-20--re-plan-on-forecast-refresh) | Re-plan on forecast refresh | Grid data | Should | 🆕 New |
+| [F-21](#f-21--mutating-admission-webhook) | Mutating admission webhook | Core control loop | Should | 🆕 New |
 | [F-22](#f-22--relative-deadlines-for-cronjobs) | Relative deadlines for CronJobs | Core control loop | Should | 🆕 New |
 | [F-23](#f-23--balanced-policy) | Balanced policy | Planning | Could | 🆕 New |
 | [F-26](#f-26--release-staggering) | Release staggering | Planning | Should | 🆕 New |
@@ -73,7 +74,6 @@ can pick one, build it, tick the boxes and flip its status.
 | [F-36](#f-36--dashboard-demo-mode) | Dashboard demo mode | Observability | Could | 🆕 New |
 | [F-37](#f-37--html-backtest-report-and-showcase) | HTML backtest report and showcase | Tooling | Should | 🆕 New |
 | [F-38](#f-38--synthetic-grid-data) | Synthetic grid data | Grid data | Could | 🆕 New |
-| [F-21](#f-21--mutating-admission-webhook) | Mutating admission webhook | Core control loop | Should | 🗓️ Planned |
 | [F-24](#f-24--spatial-multi-region-shifting) | Spatial (multi-region) shifting | Planning | Could | 🗓️ Planned |
 | [F-25](#f-25--team-carbon-budgets) | Team carbon budgets | Carbon accounting | Could | 🗓️ Planned |
 | [F-27](#f-27--high-availability-with-leader-election) | High availability with leader election | Core control loop | Should | 🗓️ Planned |
@@ -705,6 +705,42 @@ same layout as `carbon-sim fetch`.
 
 ---
 
+### F-21 · Mutating admission webhook
+
+`🆕 New` · `Should` · `Core control loop` · [`controller/webhook.py`](../src/carbon_scheduler/controller/webhook.py) · [`templates/webhook.yaml`](../charts/carbon-scheduler/templates/webhook.yaml)
+
+> **As a** platform engineer, **I want** flexible Jobs to be suspended automatically, **so that** users only add annotations and can't forget `suspend: true`.
+
+With `webhook.enabled=true` the chart registers a `MutatingWebhookConfiguration` for Job `CREATE`.
+kopf serves it over HTTPS on `CARBON_WEBHOOK_PORT` (default `8443`); a Job annotated
+`flexible: "true"` that is not already suspended gets the JSON patch
+`{"op": "add", "path": "/spec/suspend", "value": true}`. Other Jobs pass through unchanged. The
+chart owns the webhook configuration, so the controller needs no extra RBAC.
+
+| Value | Default | Meaning |
+|---|---|---|
+| `webhook.enabled` | `false` | Serve the webhook and install the `MutatingWebhookConfiguration` |
+| `webhook.namespaceOptIn` | `false` | Only Jobs in namespaces labelled `carbon-scheduler/enabled=true` |
+| `webhook.excludeNamespaces` | `[kube-system]` | Never sent to the webhook |
+| `webhook.tls.mode` | `selfSigned` | `selfSigned`: the chart generates a CA and serving cert, reused on upgrade. `certManager`: a `Certificate` (self-signed `Issuer` or `tls.certManager.issuerRef`) with CA injection |
+
+```bash
+helm install carbon-scheduler ./charts/carbon-scheduler --set webhook.enabled=true
+kubectl label namespace data carbon-scheduler/enabled=true   # only with webhook.namespaceOptIn=true
+```
+
+`failurePolicy: Ignore` and a 5 s timeout keep Job creation working when the webhook is down;
+such a Job then simply runs unscheduled, which is the same fail-open behaviour as before.
+
+**Acceptance criteria**
+- [x] Webhook sets `spec.suspend: true` when `flexible: "true"` is present.
+- [x] Optional namespace-label opt-in (`carbon-scheduler/enabled=true`).
+- [x] `failurePolicy: Ignore` so an unavailable webhook never blocks Job creation.
+- [x] TLS via cert-manager or a self-signed bootstrap, documented in the chart.
+- [x] Unit tests through kopf's admission engine and chart renders (`tests/unit/test_webhook.py`).
+
+---
+
 ## Backlog
 
 <p align="center">
@@ -720,7 +756,6 @@ quadrantChart
     quadrant-2 Quick wins
     quadrant-3 Fill-ins
     quadrant-4 Research
-    F-21 Webhook: [0.48, 0.70]
     F-27 HA: [0.52, 0.52]
     F-33 E2E: [0.50, 0.45]
     F-24 Spatial: [0.88, 0.86]
@@ -738,20 +773,6 @@ Empty for now: every Wave NOW item has shipped. Pick the next item from Wave NEX
 ---
 
 ### 🔵 Wave NEXT
-
-#### F-21 · Mutating admission webhook
-
-`🗓️ Planned` · `Should` · Effort **M** · Impact **High**
-
-> **As a** platform engineer, **I want** flexible Jobs to be suspended automatically, **so that** users only add annotations and can't forget `suspend: true`.
-
-**Acceptance criteria**
-- [ ] Webhook sets `spec.suspend: true` when `flexible: "true"` is present.
-- [ ] Optional namespace-label opt-in (`carbon-scheduler/enabled=true`).
-- [ ] `failurePolicy: Ignore` so an unavailable webhook never blocks Job creation.
-- [ ] TLS via cert-manager or a self-signed bootstrap, documented in the chart.
-
----
 
 #### F-27 · High availability with leader election
 

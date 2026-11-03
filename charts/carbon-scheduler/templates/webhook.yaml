@@ -1,0 +1,136 @@
+{{- if .Values.webhook.enabled -}}
+{{- $fullname := include "carbon-scheduler.fullname" . -}}
+{{- $service := include "carbon-scheduler.webhookServiceName" . -}}
+{{- $secret := include "carbon-scheduler.webhookSecretName" . -}}
+{{- $mode := .Values.webhook.tls.mode -}}
+{{- if not (has $mode (list "selfSigned" "certManager")) -}}
+{{- fail "webhook.tls.mode must be selfSigned or certManager" -}}
+{{- end -}}
+{{- $caBundle := "" -}}
+# F-21: mutating admission webhook that sets spec.suspend=true on flexible Jobs.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $service }}
+  labels:
+    {{- include "carbon-scheduler.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 443
+      targetPort: webhook
+      protocol: TCP
+      name: webhook
+  selector:
+    {{- include "carbon-scheduler.selectorLabels" . | nindent 4 }}
+---
+{{- if eq $mode "selfSigned" }}
+{{- /* Self-signed bootstrap: generate a CA and a serving cert once, reuse them on upgrade. */}}
+{{- $existing := lookup "v1" "Secret" .Release.Namespace $secret }}
+{{- $tlsCrt := "" }}
+{{- $tlsKey := "" }}
+{{- if and $existing $existing.data (index $existing.data "ca.crt") }}
+{{- $caBundle = index $existing.data "ca.crt" }}
+{{- $tlsCrt = index $existing.data "tls.crt" }}
+{{- $tlsKey = index $existing.data "tls.key" }}
+{{- else }}
+{{- $days := int .Values.webhook.tls.selfSigned.validityDays }}
+{{- $ca := genCA (printf "%s-webhook-ca" $fullname) $days }}
+{{- $dns := list $service (printf "%s.%s" $service .Release.Namespace) (printf "%s.%s.svc" $service .Release.Namespace) (printf "%s.%s.svc.cluster.local" $service .Release.Namespace) }}
+{{- $cert := genSignedCert (printf "%s.%s.svc" $service .Release.Namespace) nil $dns $days $ca }}
+{{- $caBundle = $ca.Cert | b64enc }}
+{{- $tlsCrt = $cert.Cert | b64enc }}
+{{- $tlsKey = $cert.Key | b64enc }}
+{{- end }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $secret }}
+  labels:
+    {{- include "carbon-scheduler.labels" . | nindent 4 }}
+type: kubernetes.io/tls
+data:
+  ca.crt: {{ $caBundle }}
+  tls.crt: {{ $tlsCrt }}
+  tls.key: {{ $tlsKey }}
+---
+{{- else }}
+{{- /* cert-manager: issue the serving cert and inject the CA bundle into the webhook config. */}}
+{{- $issuerRef := .Values.webhook.tls.certManager.issuerRef }}
+{{- if not $issuerRef }}
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ $fullname }}-webhook-selfsigned
+  labels:
+    {{- include "carbon-scheduler.labels" . | nindent 4 }}
+spec:
+  selfSigned: {}
+---
+{{- $issuerRef = dict "kind" "Issuer" "name" (printf "%s-webhook-selfsigned" $fullname) }}
+{{- end }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ $fullname }}-webhook
+  labels:
+    {{- include "carbon-scheduler.labels" . | nindent 4 }}
+spec:
+  secretName: {{ $secret }}
+  duration: {{ .Values.webhook.tls.certManager.duration }}
+  renewBefore: {{ .Values.webhook.tls.certManager.renewBefore }}
+  commonName: {{ printf "%s.%s.svc" $service .Release.Namespace }}
+  dnsNames:
+    - {{ $service }}
+    - {{ printf "%s.%s" $service .Release.Namespace }}
+    - {{ printf "%s.%s.svc" $service .Release.Namespace }}
+    - {{ printf "%s.%s.svc.cluster.local" $service .Release.Namespace }}
+  issuerRef:
+    {{- toYaml $issuerRef | nindent 4 }}
+---
+{{- end }}
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: {{ $fullname }}
+  labels:
+    {{- include "carbon-scheduler.labels" . | nindent 4 }}
+  {{- if eq $mode "certManager" }}
+  annotations:
+    cert-manager.io/inject-ca-from: {{ printf "%s/%s-webhook" .Release.Namespace $fullname }}
+  {{- end }}
+webhooks:
+  - name: suspend-flexible-jobs.carbon-scheduler.mahmudul-islam32.github.io
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+    # Fail open: an unavailable webhook never blocks Job creation.
+    failurePolicy: Ignore
+    timeoutSeconds: {{ .Values.webhook.timeoutSeconds }}
+    clientConfig:
+      service:
+        name: {{ $service }}
+        namespace: {{ .Release.Namespace }}
+        path: /suspend-flexible-jobs
+        port: 443
+      {{- if eq $mode "selfSigned" }}
+      caBundle: {{ $caBundle }}
+      {{- end }}
+    rules:
+      - apiGroups: ["batch"]
+        apiVersions: ["v1"]
+        resources: ["jobs"]
+        operations: ["CREATE"]
+        scope: Namespaced
+    namespaceSelector:
+      {{- if .Values.webhook.namespaceOptIn }}
+      matchLabels:
+        carbon-scheduler/enabled: "true"
+      {{- end }}
+      {{- with .Values.webhook.excludeNamespaces }}
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values:
+            {{- toYaml . | nindent 12 }}
+      {{- end }}
+{{- end }}

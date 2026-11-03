@@ -29,6 +29,7 @@ from carbon_scheduler.controller.annotations import (
 )
 from carbon_scheduler.controller.scheduler import JobScheduler
 from carbon_scheduler.controller.staggering import ReleaseLimiter, is_deadline_critical
+from carbon_scheduler.controller.webhook import configure_admission
 from carbon_scheduler.dashboard.records import record_from_annotations
 from carbon_scheduler.dashboard.state import STATE
 from carbon_scheduler.grid import EnergyChartsClient
@@ -591,31 +592,34 @@ async def check_release_timer(
 
 
 @kopf.on.startup()
-async def on_startup(**_kwargs: Any) -> None:
+async def on_startup(settings: kopf.OperatorSettings | None = None, **_kwargs: Any) -> None:
     """Kopf startup handler to initialize the controller."""
-    settings = get_settings()
+    app_settings = get_settings()
+    if settings is not None:
+        configure_admission(app_settings, settings)
 
     logger.info(
         "controller_starting",
-        policy=settings.policy,
-        grid_country=settings.grid_country,
-        safety_margin_minutes=settings.deadline_safety_margin_minutes,
-        reconcile_interval_seconds=settings.reconcile_interval_seconds,
-        max_delay=settings.max_delay,
+        policy=app_settings.policy,
+        grid_country=app_settings.grid_country,
+        safety_margin_minutes=app_settings.deadline_safety_margin_minutes,
+        reconcile_interval_seconds=app_settings.reconcile_interval_seconds,
+        max_delay=app_settings.max_delay,
+        webhook_enabled=app_settings.webhook_enabled,
     )
 
     scheduler = get_scheduler()
 
     grid_client = EnergyChartsClient(
-        base_url=settings.grid_api_base_url,
-        country=settings.grid_country,
-        cache_ttl=settings.forecast_refresh_minutes * 60,
+        base_url=app_settings.grid_api_base_url,
+        country=app_settings.grid_country,
+        cache_ttl=app_settings.forecast_refresh_minutes * 60,
     )
     # Open the HTTP session; without it every fetch fails and all jobs fall back.
     await grid_client.__aenter__()
 
     scheduler.grid_client = grid_client
-    STATE.configure(mode="live", country=settings.grid_country, policy=settings.policy)
+    STATE.configure(mode="live", country=app_settings.grid_country, policy=app_settings.policy)
     set_ready(True)
 
     logger.info("controller_initialized")

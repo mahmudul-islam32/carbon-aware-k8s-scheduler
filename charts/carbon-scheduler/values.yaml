@@ -112,6 +112,31 @@ metrics:
 dashboard:
   enabled: true
 
+# Mutating admission webhook (F-21): sets spec.suspend=true on Jobs annotated
+# flexible: "true" at creation, so users can't forget it. failurePolicy is always
+# Ignore: if the webhook is down, Jobs are created unchanged (fail-open).
+webhook:
+  enabled: false
+  port: 8443
+  # Only send Jobs from namespaces labelled carbon-scheduler/enabled=true
+  namespaceOptIn: false
+  # Namespaces whose Jobs are never sent to the webhook
+  excludeNamespaces:
+    - kube-system
+  timeoutSeconds: 5
+  tls:
+    # selfSigned: the chart generates a CA and serving certificate (reused on upgrade)
+    # certManager: cert-manager issues the certificate and injects the CA bundle
+    mode: selfSigned
+    selfSigned:
+      validityDays: 3650
+    certManager:
+      # Existing Issuer/ClusterIssuer, e.g. {kind: ClusterIssuer, name: my-ca}.
+      # Empty creates a self-signed Issuer for the webhook.
+      issuerRef: {}
+      duration: 8760h
+      renewBefore: 720h
+
 # PrometheusRule alert pack (needs the Prometheus Operator CRDs)
 alerts:
   enabled: false

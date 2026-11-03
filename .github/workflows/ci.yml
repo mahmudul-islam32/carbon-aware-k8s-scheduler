@@ -49,6 +49,11 @@ jobs:
       - name: Render chart
         run: helm template carbon-scheduler charts/carbon-scheduler --set metrics.serviceMonitor.enabled=true --set grafana.enabled=true --set alerts.enabled=true > /dev/null
 
+      - name: Render webhook (self-signed and cert-manager TLS)
+        run: |
+          helm template carbon-scheduler charts/carbon-scheduler --set webhook.enabled=true --set webhook.namespaceOptIn=true | grep -q "failurePolicy: Ignore"
+          helm template carbon-scheduler charts/carbon-scheduler --set webhook.enabled=true --set webhook.tls.mode=certManager | grep -q "cert-manager.io/inject-ca-from"
+
   docker:
     name: Docker build
     runs-on: ubuntu-latest
