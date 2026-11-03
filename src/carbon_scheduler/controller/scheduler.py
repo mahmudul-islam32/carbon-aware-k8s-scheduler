@@ -14,6 +14,7 @@ import structlog
 from carbon_scheduler.carbon.live import estimate_avoided_emissions, extract_job_resources
 from carbon_scheduler.config import (
     ANNOTATION_CO2_AVOIDED,
+    ANNOTATION_DEADLINE,
     ANNOTATION_EXPECTED_RENEWABLE_SHARE,
     ANNOTATION_FALLBACK_REASON,
     ANNOTATION_LATEST_START,
@@ -28,6 +29,7 @@ from carbon_scheduler.controller.annotations import (
     parse_annotations,
     parse_duration,
 )
+from carbon_scheduler.dashboard.state import STATE
 from carbon_scheduler.grid import EnergyChartsClient, EnergyChartsError, GridData
 from carbon_scheduler.metrics.prometheus import (
     record_fallback_release,
@@ -134,6 +136,7 @@ class JobScheduler:
         self._policy_config = PolicyConfig(
             renewable_threshold_pct=self.settings.renewable_threshold_pct,
             safety_margin=timedelta(minutes=self.settings.deadline_safety_margin_minutes),
+            delay_penalty_pct_per_hour=self.settings.delay_penalty_pct_per_hour,
         )
 
     @property
@@ -213,6 +216,7 @@ class JobScheduler:
         annotations: dict[str, Any],
         current_time: datetime | None = None,
         job_spec: dict[str, Any] | None = None,
+        submit_time: datetime | None = None,
     ) -> ScheduleDecision:
         """Calculate the scheduling decision for a job.
 
@@ -222,6 +226,7 @@ class JobScheduler:
             annotations: Job annotations
             current_time: Current time (defaults to now)
             job_spec: Job spec, used to estimate energy from resource requests
+            submit_time: Job creation time, used to resolve a relative deadline
 
         Returns:
             ScheduleDecision with the scheduling plan
@@ -229,8 +234,30 @@ class JobScheduler:
         if current_time is None:
             current_time = datetime.now(UTC)
 
+        decision = await self._calculate_schedule(
+            job_name, job_namespace, annotations, current_time, job_spec, submit_time
+        )
+        # Pin a relative deadline (deadline-in) so later reconciles see a fixed value.
+        if ANNOTATION_DEADLINE not in annotations:
+            try:
+                parsed = parse_annotations(annotations, submit_time=submit_time or current_time)
+            except AnnotationError:
+                return decision
+            decision.annotations_to_set[ANNOTATION_DEADLINE] = parsed.deadline.isoformat()
+        return decision
+
+    async def _calculate_schedule(
+        self,
+        job_name: str,
+        job_namespace: str,
+        annotations: dict[str, Any],
+        current_time: datetime,
+        job_spec: dict[str, Any] | None,
+        submit_time: datetime | None,
+    ) -> ScheduleDecision:
+        """Compute the decision; see :meth:`calculate_schedule`."""
         try:
-            parsed = parse_annotations(annotations)
+            parsed = parse_annotations(annotations, submit_time=submit_time or current_time)
         except AnnotationError as e:
             logger.warning(
                 "annotation_validation_failed",
@@ -301,6 +328,7 @@ class JobScheduler:
 
         self._record_grid_gauges(grid_data, current_time)
         forecast = self._grid_data_to_forecast(grid_data)
+        STATE.set_forecast(forecast, fetched_at=grid_data.fetched_at)
 
         if forecast is None or grid_data.is_degraded:
             logger.warning(
@@ -320,6 +348,7 @@ class JobScheduler:
             policy_name,  # type: ignore[arg-type]  # validated by parse_annotations/Settings
             config=self._policy_config,
             threshold_pct=threshold_pct,
+            delay_penalty_pct_per_hour=parsed.delay_penalty_override,
         )
 
         window = policy.select(job_info, forecast, current_time)

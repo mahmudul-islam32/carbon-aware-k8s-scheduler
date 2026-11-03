@@ -56,6 +56,7 @@ dev = [
 [project.scripts]
 carbon-scheduler = "carbon_scheduler.controller.main:main"
 carbon-sim = "carbon_scheduler.sim.cli:main"
+kubectl-carbon = "carbon_scheduler.kubectl_plugin:main"
 
 [project.urls]
 Homepage = "https://github.com/mahmudul-islam32/carbon-aware-k8s-scheduler"

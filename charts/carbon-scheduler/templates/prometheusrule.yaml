@@ -1,0 +1,58 @@
+{{- if .Values.alerts.enabled -}}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "carbon-scheduler.fullname" . }}
+  {{- if .Values.alerts.namespace }}
+  namespace: {{ .Values.alerts.namespace }}
+  {{- end }}
+  labels:
+    {{- include "carbon-scheduler.labels" . | nindent 4 }}
+    {{- with .Values.alerts.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  groups:
+    - name: carbon-scheduler
+      rules:
+        - alert: CarbonSchedulerDown
+          expr: absent(up{job=~".*carbon-scheduler.*"} == 1)
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: Carbon scheduler is not being scraped
+            description: No healthy carbon-scheduler target for 5 minutes. Flexible Jobs stay suspended until it returns (they are released at their latest start once it does).
+        - alert: CarbonForecastStale
+          expr: carbon_forecast_age_seconds > {{ .Values.alerts.forecastStaleSeconds }}
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Grid forecast is stale
+            description: The renewable-share forecast is {{ "{{" }} $value | humanizeDuration {{ "}}" }} old. Check egress to the Energy-Charts API.
+        - alert: CarbonGridApiErrors
+          expr: sum(rate(carbon_api_requests_total{status!="success"}[15m])) / clamp_min(sum(rate(carbon_api_requests_total[15m])), 1e-9) > 0.5
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Most Energy-Charts requests are failing
+            description: More than half of grid API calls failed over the last 15 minutes; Jobs will be released fail-open.
+        - alert: CarbonHighFallbackRatio
+          expr: sum(increase(fallback_releases_total[1h])) / clamp_min(sum(increase(carbon_jobs_released_total[1h])), 1) > {{ .Values.alerts.fallbackRatio }}
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: Many Jobs are released without a green window
+            description: Over {{ mulf .Values.alerts.fallbackRatio 100 }}% of releases in the last hour were fallbacks (missing data, tight deadlines or invalid annotations).
+        - alert: CarbonManyJobsHeld
+          expr: max by (namespace) (carbon_jobs_held) > {{ .Values.alerts.heldJobsHigh }}
+          for: 30m
+          labels:
+            severity: info
+          annotations:
+            summary: Large backlog of held Jobs
+            description: '{{ "{{" }} $labels.namespace {{ "}}" }} has {{ "{{" }} $value {{ "}}" }} Jobs waiting for a green window. Consider release staggering (config.maxReleasesPerMinute).'
+{{- end }}

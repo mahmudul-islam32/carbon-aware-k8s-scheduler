@@ -86,7 +86,7 @@ def run_controller() -> NoReturn:
     )
 
     try:
-        setup_metrics(port=settings.metrics_port)
+        setup_metrics(port=settings.metrics_port, dashboard=settings.dashboard_enabled)
         logger.info("metrics_server_started", port=settings.metrics_port)
     except Exception as e:
         logger.error("metrics_server_failed", error=str(e))

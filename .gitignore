@@ -34,3 +34,6 @@ data/
 # Helm dependencies
 charts/*/charts/
 charts/*/Chart.lock
+
+# carbon-sim showcase output
+showcase/
