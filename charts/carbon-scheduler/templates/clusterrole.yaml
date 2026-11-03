@@ -12,4 +12,10 @@ rules:
   - apiGroups: [""]
     resources: ["events"]
     verbs: ["create", "patch"]
+  {{- if eq (include "carbon-scheduler.leaderElection" .) "true" }}
+  # F-27: leader election via kopf peering
+  - apiGroups: ["kopf.dev"]
+    resources: ["clusterkopfpeerings"]
+    verbs: ["get", "list", "watch", "patch"]
+  {{- end }}
 {{- end }}

@@ -7,8 +7,8 @@
 <p align="center">
   <img alt="Done" src="https://img.shields.io/badge/done-17-16a34a?style=for-the-badge">
   <img alt="Improved" src="https://img.shields.io/badge/improved-1-0d9488?style=for-the-badge">
-  <img alt="New" src="https://img.shields.io/badge/new-11-2563eb?style=for-the-badge">
-  <img alt="Planned" src="https://img.shields.io/badge/planned-9-d97706?style=for-the-badge">
+  <img alt="New" src="https://img.shields.io/badge/new-12-2563eb?style=for-the-badge">
+  <img alt="Planned" src="https://img.shields.io/badge/planned-8-d97706?style=for-the-badge">
 </p>
 
 This is the single source of truth for what the scheduler does today and what comes next.
@@ -20,8 +20,8 @@ can pick one, build it, tick the boxes and flip its status.
 1. [Legend](#legend)
 2. [At a glance](#at-a-glance)
 3. [How the pieces fit](#how-the-pieces-fit)
-4. [Shipped features](#shipped-features) (F-01 to F-20, F-22, F-23, F-26, F-29, F-32, F-34 to F-38)
-5. [Backlog](#backlog) (F-11, F-21, F-24, F-25, F-27, F-28, F-30, F-31, F-33)
+4. [Shipped features](#shipped-features) (F-01 to F-20, F-22, F-23, F-26, F-27, F-29, F-32, F-34 to F-38)
+5. [Backlog](#backlog) (F-11, F-21, F-24, F-25, F-28, F-30, F-31, F-33)
 6. [Working through the backlog](#working-through-the-backlog)
 
 ---
@@ -66,6 +66,7 @@ can pick one, build it, tick the boxes and flip its status.
 | [F-22](#f-22--relative-deadlines-for-cronjobs) | Relative deadlines for CronJobs | Core control loop | Should | 🆕 New |
 | [F-23](#f-23--balanced-policy) | Balanced policy | Planning | Could | 🆕 New |
 | [F-26](#f-26--release-staggering) | Release staggering | Planning | Should | 🆕 New |
+| [F-27](#f-27--high-availability-with-leader-election) | High availability with leader election | Core control loop | Should | 🆕 New |
 | [F-29](#f-29--kubectl-carbon-plugin) | `kubectl carbon` plugin | Tooling | Could | 🆕 New |
 | [F-32](#f-32--prometheusrule-alert-pack) | PrometheusRule alert pack | Observability | Should | 🆕 New |
 | [F-34](#f-34--release-pipeline) | Release pipeline | Tooling | Should | 🆕 New |
@@ -76,7 +77,6 @@ can pick one, build it, tick the boxes and flip its status.
 | [F-21](#f-21--mutating-admission-webhook) | Mutating admission webhook | Core control loop | Should | 🗓️ Planned |
 | [F-24](#f-24--spatial-multi-region-shifting) | Spatial (multi-region) shifting | Planning | Could | 🗓️ Planned |
 | [F-25](#f-25--team-carbon-budgets) | Team carbon budgets | Carbon accounting | Could | 🗓️ Planned |
-| [F-27](#f-27--high-availability-with-leader-election) | High availability with leader election | Core control loop | Should | 🗓️ Planned |
 | [F-28](#f-28--more-grid-data-providers) | More grid data providers | Grid data | Could | 🗓️ Planned |
 | [F-30](#f-30--runtime-learning) | Runtime learning | Planning | Could | 🗓️ Planned |
 | [F-31](#f-31--measured-energy-via-kepler) | Measured energy via Kepler | Carbon accounting | Could | 🗓️ Planned |
@@ -705,6 +705,52 @@ same layout as `carbon-sim fetch`.
 
 ---
 
+### F-27 · High availability with leader election
+
+`🆕 New` · `Should` · `Core control loop` · [`controller/leader.py`](../src/carbon_scheduler/controller/leader.py) · [`templates/peering.yaml`](../charts/carbon-scheduler/templates/peering.yaml)
+
+> **As a** platform engineer, **I want** to run two replicas, **so that** a node drain doesn't pause releases.
+
+`CARBON_LEADER_ELECTION=true` switches kopf from `standalone` to mandatory
+[peering](https://docs.kopf.dev/en/stable/peering/) on the cluster-wide `ClusterKopfPeering`
+object `CARBON_PEERING_NAME`. Only the live replica with the highest priority watches Jobs, runs
+release timers and patches; the others stay paused.
+
+- **Priorities** are derived from the pod name (`POD_ID` from the downward API). kopf pauses *all*
+  replicas that share the top priority, so they must differ.
+- **Failover.** Each replica advertises a peering lifetime equal to `CARBON_RECONCILE_INTERVAL_SECONDS`.
+  A drained leader removes itself immediately. A crashed one is dead one lifetime after its last
+  keep-alive. The standby then re-lists Jobs and its release timers fire at once (no initial delay),
+  so a due Job is released within **2 reconcile intervals**.
+- **Fail-safe.** With peering enabled but its CRD or object missing, replicas stay paused instead of
+  double-patching Jobs.
+
+| Value | Default | Meaning |
+|---|---|---|
+| `replicaCount` | `1` | Set `2` for HA |
+| `config.leaderElection` | `auto` | `auto` = on when `replicaCount > 1`; `true` / `false` to force (`false` with 2+ replicas fails the render) |
+| `config.peeringName` | release fullname | `ClusterKopfPeering` object the replicas share |
+| `podDisruptionBudget.enabled` / `minAvailable` | `true` / `1` | Rendered only with `replicaCount > 1` |
+
+```bash
+helm install carbon-scheduler ./charts/carbon-scheduler --set replicaCount=2
+# upgrading an existing release: Helm installs crds/ only on install, so apply the peering CRD once
+kubectl apply -f charts/carbon-scheduler/crds/
+```
+
+With more than one replica, the chart also adds a soft pod anti-affinity across nodes (unless
+`affinity` is set) and RBAC for `clusterkopfpeerings`. The metrics Service selects every replica, so
+`/metrics` and the dashboard on a standby show its own (idle) state.
+
+**Acceptance criteria**
+- [x] kopf peering (or a Lease-based lock) so only one replica patches Jobs.
+- [x] `replicaCount: 2` in the chart works, with a PodDisruptionBudget.
+- [x] Failover releases a due Job within 2 reconcile intervals. *Verified by running kopf's own peering
+      decision with our settings in unit tests, not yet on a live cluster (see F-33).*
+- [x] Unit tests (`tests/unit/test_leader.py`).
+
+---
+
 ## Backlog
 
 <p align="center">
@@ -721,7 +767,6 @@ quadrantChart
     quadrant-3 Fill-ins
     quadrant-4 Research
     F-21 Webhook: [0.48, 0.70]
-    F-27 HA: [0.52, 0.52]
     F-33 E2E: [0.50, 0.45]
     F-24 Spatial: [0.88, 0.86]
     F-25 Budgets: [0.82, 0.38]
@@ -750,21 +795,6 @@ Empty for now: every Wave NOW item has shipped. Pick the next item from Wave NEX
 - [ ] Optional namespace-label opt-in (`carbon-scheduler/enabled=true`).
 - [ ] `failurePolicy: Ignore` so an unavailable webhook never blocks Job creation.
 - [ ] TLS via cert-manager or a self-signed bootstrap, documented in the chart.
-
----
-
-#### F-27 · High availability with leader election
-
-`🗓️ Planned` · `Should` · Effort **M** · Impact **Medium**
-
-> **As a** platform engineer, **I want** to run two replicas, **so that** a node drain doesn't pause releases.
-
-`CARBON_LEADER_ELECTION` exists in settings but is not wired up yet (kopf runs `standalone`).
-
-**Acceptance criteria**
-- [ ] kopf peering (or a Lease-based lock) so only one replica patches Jobs.
-- [ ] `replicaCount: 2` in the chart works, with a PodDisruptionBudget.
-- [ ] Failover releases a due Job within 2 reconcile intervals.
 
 ---
 

@@ -1,0 +1,10 @@
+{{- if eq (include "carbon-scheduler.leaderElection" .) "true" -}}
+# F-27: replicas elect a leader through this kopf peering object; only the
+# highest-priority live replica watches and patches Jobs.
+apiVersion: kopf.dev/v1
+kind: ClusterKopfPeering
+metadata:
+  name: {{ include "carbon-scheduler.peeringName" . }}
+  labels:
+    {{- include "carbon-scheduler.labels" . | nindent 4 }}
+{{- end }}

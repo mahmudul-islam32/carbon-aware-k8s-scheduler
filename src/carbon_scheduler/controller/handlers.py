@@ -27,6 +27,7 @@ from carbon_scheduler.controller.annotations import (
     parse_annotations,
     parse_iso8601_datetime,
 )
+from carbon_scheduler.controller.leader import configure_peering
 from carbon_scheduler.controller.scheduler import JobScheduler
 from carbon_scheduler.controller.staggering import ReleaseLimiter, is_deadline_critical
 from carbon_scheduler.dashboard.records import record_from_annotations
@@ -591,31 +592,34 @@ async def check_release_timer(
 
 
 @kopf.on.startup()
-async def on_startup(**_kwargs: Any) -> None:
+async def on_startup(settings: kopf.OperatorSettings | None = None, **_kwargs: Any) -> None:
     """Kopf startup handler to initialize the controller."""
-    settings = get_settings()
+    app_settings = get_settings()
+    if settings is not None:
+        configure_peering(app_settings, settings)
 
     logger.info(
         "controller_starting",
-        policy=settings.policy,
-        grid_country=settings.grid_country,
-        safety_margin_minutes=settings.deadline_safety_margin_minutes,
-        reconcile_interval_seconds=settings.reconcile_interval_seconds,
-        max_delay=settings.max_delay,
+        policy=app_settings.policy,
+        grid_country=app_settings.grid_country,
+        safety_margin_minutes=app_settings.deadline_safety_margin_minutes,
+        reconcile_interval_seconds=app_settings.reconcile_interval_seconds,
+        max_delay=app_settings.max_delay,
+        leader_election=app_settings.leader_election,
     )
 
     scheduler = get_scheduler()
 
     grid_client = EnergyChartsClient(
-        base_url=settings.grid_api_base_url,
-        country=settings.grid_country,
-        cache_ttl=settings.forecast_refresh_minutes * 60,
+        base_url=app_settings.grid_api_base_url,
+        country=app_settings.grid_country,
+        cache_ttl=app_settings.forecast_refresh_minutes * 60,
     )
     # Open the HTTP session; without it every fetch fails and all jobs fall back.
     await grid_client.__aenter__()
 
     scheduler.grid_client = grid_client
-    STATE.configure(mode="live", country=settings.grid_country, policy=settings.policy)
+    STATE.configure(mode="live", country=app_settings.grid_country, policy=app_settings.policy)
     set_ready(True)
 
     logger.info("controller_initialized")

@@ -120,8 +120,13 @@ class Settings(BaseSettings):
         description="How often to reconcile job states (seconds)",
     )
     leader_election: bool = Field(
-        default=True,
-        description="Enable leader election for HA deployments",
+        default=False,
+        description="Enable leader election (kopf peering) so only one replica acts (HA)",
+    )
+    peering_name: str = Field(
+        default="carbon-scheduler",
+        min_length=1,
+        description="Name of the ClusterKopfPeering object the replicas share",
     )
 
     # Logging

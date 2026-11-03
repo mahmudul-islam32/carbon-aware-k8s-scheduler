@@ -37,7 +37,7 @@ flowchart TB
 | [`grid`](../src/carbon_scheduler/grid) | Energy-Charts client for `/ren_share_forecast`, `/signal`, `/public_power`. Caching, `Retry-After` handling, `substitute` flag propagation, request metrics | F-03, F-19 |
 | [`planner`](../src/carbon_scheduler/planner) | Pure policy functions: `immediate`, `threshold`, `greenest-window`, `balanced` | F-04, F-23 |
 | [`carbon`](../src/carbon_scheduler/carbon) | Intensity from generation mix and emission factors; live per-job estimate from renewable share and resource requests | F-06, F-16 |
-| [`controller`](../src/carbon_scheduler/controller) | kopf handlers for Job create/update, release timer with re-planning, annotation contract (incl. relative deadlines), Event posting, release staggering | F-01, F-02, F-05, F-12, F-14, F-15, F-20, F-22, F-26 |
+| [`controller`](../src/carbon_scheduler/controller) | kopf handlers for Job create/update, release timer with re-planning, annotation contract (incl. relative deadlines), Event posting, release staggering, leader election | F-01, F-02, F-05, F-12, F-14, F-15, F-20, F-22, F-26, F-27 |
 | [`metrics`](../src/carbon_scheduler/metrics) | Prometheus metrics plus the HTTP server for `/metrics`, `/healthz`, `/readyz` and the dashboard | F-07, F-13, F-19 |
 | [`dashboard`](../src/carbon_scheduler/dashboard) | In-memory state fed by the controller, `/api/state`, the single-page UI, and the demo cluster simulator | F-35, F-36 |
 | [`sim`](../src/carbon_scheduler/sim) | `carbon-sim` CLI: fetch or synthesise history, generate traces, backtest, HTML report, showcase, dry-run plan, demo dashboard | F-09, F-17, F-36, F-37, F-38 |
@@ -103,11 +103,11 @@ sequenceDiagram
 
 ## 7. Reliability and security
 - **Fail-open:** when data is missing or degraded, Jobs run as they would without the scheduler.
-- **Stateless:** all state lives in Job annotations (`planned-start`, `latest-start`, …). The release timer also rebuilds the held-jobs gauge after a restart.
+- **Stateless:** all state lives in Job annotations, so a new leader picks up where the old one stopped (`planned-start`, `latest-start`, …). The release timer also rebuilds the held-jobs gauge after a restart.
 - **Probes:** `/healthz` (process alive) and `/readyz` (grid client initialised) on the metrics port.
 - **RBAC** is least-privilege: Jobs get/list/watch/patch, Events create/patch. No secrets are needed, because the public API is unauthenticated.
 - **Rate limits:** one shared cache per controller respects the API's published limits (about 2 requests per minute per endpoint).
-- **Single replica** today. HA with leader election is [F-27](FEATURES.md#f-27--high-availability-with-leader-election).
+- **High availability (F-27):** with `replicaCount: 2` the replicas elect a leader through kopf peering (`ClusterKopfPeering`); only the leader watches and patches Jobs. Peering lifetime equals the reconcile interval, so a standby releases due Jobs within two intervals after a crash, and immediately after a graceful drain. A PodDisruptionBudget keeps one replica up.
 
 ## 8. Evaluation plan
 Backtest policies over at least 3 months of historical German data with synthetic job traces of varied slack. Report avoided CO₂ (estimate), mean and p95 delay, and deadline misses (target: 0).
@@ -120,4 +120,5 @@ Backtest policies over at least 3 months of historical German data with syntheti
 | Emission-factor source | IPCC AR5 lifecycle medians, cross-checked with UBA (see YAML) |
 | Should a mutating webhook set `suspend: true`? | Yes, planned as [F-21](FEATURES.md#f-21--mutating-admission-webhook) |
 | How do CronJobs express deadlines? | Open; relative deadlines planned as [F-22](FEATURES.md#f-22--relative-deadlines-for-cronjobs) |
+| Leader election: Lease lock or kopf peering? | kopf peering: paused replicas stop watching entirely, so kopf's per-Job progress annotations are never written twice ([F-27](FEATURES.md#f-27--high-availability-with-leader-election)) |
 | Should plans move when the forecast changes? | Yes, with a 3-point hysteresis and never past `latest-start` ([F-20](FEATURES.md#f-20--re-plan-on-forecast-refresh)) |
