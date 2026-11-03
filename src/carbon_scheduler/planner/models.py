@@ -153,6 +153,11 @@ class PolicyConfig(BaseModel):
         default=timedelta(minutes=5),
         description="Safety margin before deadline",
     )
+    delay_penalty_pct_per_hour: float = Field(
+        default=2.0,
+        ge=0,
+        description="Balanced policy: renewable-share points subtracted per hour of delay",
+    )
 
     @field_validator("safety_margin", mode="before")
     @classmethod

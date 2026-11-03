@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carbon-Aware Scheduler</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%2316a34a' d='M17 8C8 10 5.9 16.2 3.8 21.3l1.9.7 1-2.3c.5.2 1 .3 1.3.3C19 20 22 3 22 3c-1 2-8 2.3-13 3.3S2 11.5 2 13.5s1.8 3.8 1.8 3.8C7 8 17 8 17 8z'/%3E%3C/svg%3E">
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f5f6f3;
+  --surface: #fcfcfb;
+  --surface-2: #f0f1ed;
+  --border: #e3e4df;
+  --grid: #e9eae5;
+  --text: #0b0b0b;
+  --text-2: #52514e;
+  --text-3: #7a7974;
+  --accent: #15803d;
+  --share: #1baf7a;
+  --share-fill: rgba(27, 175, 122, 0.16);
+  --held: #2a78d6;
+  --running: #008300;
+  --done: #a3a29c;
+  --fallback: #eb6834;
+  --co2: #2a78d6;
+  --now: #0b0b0b;
+  --heat-0: #eef7f1; --heat-1: #c9ead6; --heat-2: #93d3ad; --heat-3: #52b67f; --heat-4: #1f8f55; --heat-5: #0b6436;
+  --shadow: 0 1px 2px rgba(0,0,0,.04), 0 2px 8px rgba(0,0,0,.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #111110; --surface: #1a1a19; --surface-2: #232321; --border: #2e2e2b; --grid: #2a2a27;
+    --text: #f0efec; --text-2: #c3c2b7; --text-3: #8f8e86; --accent: #4ade80;
+    --share: #199e70; --share-fill: rgba(25, 158, 112, 0.22);
+    --held: #3987e5; --running: #2fa52f; --done: #6b6a64; --fallback: #d95926; --co2: #3987e5; --now: #f0efec;
+    --heat-0: #1d2420; --heat-1: #1d3a2a; --heat-2: #1f5537; --heat-3: #237447; --heat-4: #2f9a5d; --heat-5: #4cc47c;
+    --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #111110; --surface: #1a1a19; --surface-2: #232321; --border: #2e2e2b; --grid: #2a2a27;
+  --text: #f0efec; --text-2: #c3c2b7; --text-3: #8f8e86; --accent: #4ade80;
+  --share: #199e70; --share-fill: rgba(25, 158, 112, 0.22);
+  --held: #3987e5; --running: #2fa52f; --done: #6b6a64; --fallback: #d95926; --co2: #3987e5; --now: #f0efec;
+  --heat-0: #1d2420; --heat-1: #1d3a2a; --heat-2: #1f5537; --heat-3: #237447; --heat-4: #2f9a5d; --heat-5: #4cc47c;
+  --shadow: none;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--text);
+  font: 14px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1320px; margin: 0 auto; padding: 20px 16px 40px; }
+header { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 650; font-size: 18px; letter-spacing: -.01em; }
+.brand svg { width: 28px; height: 28px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text-2); font-size: 12px; }
+.pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: pulse 2s infinite; }
+@keyframes pulse { 50% { opacity: .35; } }
+.spacer { flex: 1; }
+.clock { font-variant-numeric: tabular-nums; color: var(--text-2); font-size: 13px; }
+button.theme { border: 1px solid var(--border); background: var(--surface); color: var(--text-2);
+  border-radius: 8px; padding: 5px 10px; cursor: pointer; font: inherit; font-size: 12px; }
+.kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); }
+.kpi { padding: 14px 16px; min-width: 0; }
+.kpi .label { color: var(--text-2); font-size: 12px; display: flex; align-items: center; gap: 6px; }
+.kpi .value { font-size: 26px; font-weight: 650; letter-spacing: -.02em; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.kpi .value small { font-size: 14px; font-weight: 500; color: var(--text-2); margin-left: 2px; }
+.kpi .sub { color: var(--text-3); font-size: 12px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.meter { height: 4px; border-radius: 4px; background: var(--surface-2); margin-top: 8px; overflow: hidden; }
+.meter > i { display: block; height: 100%; background: var(--share); border-radius: 4px; transition: width .4s; }
+.panel { padding: 14px 16px 12px; margin-bottom: 14px; min-width: 0; }
+.panel h2 { font-size: 14px; font-weight: 600; margin: 0; }
+.panel .head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+.panel .hint { color: var(--text-3); font-size: 12px; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--text-2); margin-left: auto; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 12px; height: 8px; border-radius: 2px; display: inline-block; }
+.legend i.line { height: 2px; }
+.row { display: grid; gap: 14px; }
+.row.three { grid-template-columns: 1.2fr 1fr 1fr; }
+.row.two { grid-template-columns: 1.6fr 1fr; }
+svg { display: block; width: 100%; overflow: visible; }
+svg text { fill: var(--text-3); font-size: 11px; font-family: inherit; }
+.axis line, .gridline { stroke: var(--grid); stroke-width: 1; shape-rendering: crispEdges; }
+.tooltip { position: fixed; pointer-events: none; z-index: 10; background: var(--surface); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.12);
+  opacity: 0; transition: opacity .1s; max-width: 280px; }
+.tooltip b { font-weight: 600; }
+.tooltip .muted { color: var(--text-2); }
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+th { text-align: left; color: var(--text-3); font-weight: 500; padding: 6px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+td { padding: 6px 8px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+td.num, th.num { text-align: right; }
+.chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; padding: 1px 8px; border-radius: 999px;
+  border: 1px solid var(--border); color: var(--text-2); }
+.chip i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.scroll { max-height: 330px; overflow: auto; }
+.events { list-style: none; margin: 0; padding: 0; }
+.events li { display: grid; grid-template-columns: 62px 1fr; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--grid); font-size: 12.5px; }
+.events time { color: var(--text-3); font-variant-numeric: tabular-nums; }
+.events .reason { font-weight: 600; }
+.events .reason.warn { color: var(--fallback); }
+.events .msg { color: var(--text-2); }
+.empty { color: var(--text-3); padding: 24px 0; text-align: center; }
+.up { color: var(--accent); font-weight: 600; }
+footer { color: var(--text-3); font-size: 12px; margin-top: 8px; display: flex; gap: 12px; flex-wrap: wrap; }
+footer a { color: var(--text-2); }
+@media (max-width: 1100px) {
+  .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .row.three, .row.two { grid-template-columns: 1fr; }
+}
+@media (max-width: 560px) {
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpi .value { font-size: 22px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#16a34a"/><path fill="#fff" d="M22.5 9.5c-7 1.4-9.4 6.3-11 10.4l1.4.6.8-1.8c.4.2.8.2 1 .2 8.6 0 11-13 11-13-.8 1.5-6.2 1.8-10.1 2.6S9 12.4 9 14s1.4 3 1.4 3C12.8 10 22.5 9.5 22.5 9.5z"/></svg>
+      Carbon-Aware Scheduler
+    </div>
+    <span class="pill" id="mode"><span class="dot"></span><span>connecting…</span></span>
+    <span class="pill" id="meta">grid —</span>
+    <span class="spacer"></span>
+    <span class="clock" id="clock">—</span>
+    <button class="theme" id="themeBtn" type="button" aria-label="Toggle theme">◐ Theme</button>
+  </header>
+
+  <section class="kpis" aria-label="Key figures">
+    <div class="card kpi"><div class="label">⚡ Grid renewable share now</div><div class="value" id="kShare">—</div><div class="meter"><i id="kShareBar" style="width:0"></i></div></div>
+    <div class="card kpi"><div class="label">☀️ Peak ahead (forecast)</div><div class="value" id="kPeak">—</div><div class="sub" id="kPeakSub">—</div></div>
+    <div class="card kpi"><div class="label">⏸ Jobs held</div><div class="value" id="kHeld">—</div><div class="sub" id="kHeldSub">waiting for a green window</div></div>
+    <div class="card kpi"><div class="label">▶ Jobs released</div><div class="value" id="kReleased">—</div><div class="sub" id="kReleasedSub">—</div></div>
+    <div class="card kpi"><div class="label">🌱 CO₂ avoided (est.)</div><div class="value" id="kCo2">—</div><div class="sub" id="kCo2Sub">—</div></div>
+    <div class="card kpi"><div class="label">⏱ Mean delay</div><div class="value" id="kDelay">—</div><div class="sub">submit → release</div></div>
+  </section>
+
+  <section class="card panel">
+    <div class="head">
+      <h2>Renewable share forecast &amp; job plan</h2>
+      <span class="hint">hover for details</span>
+      <div class="legend">
+        <span><i style="background:var(--share)"></i>Renewable share</span>
+        <span><i class="line" style="background:var(--text-3)"></i>Waiting</span>
+        <span><i style="background:var(--held)"></i>⏸ Planned</span>
+        <span><i style="background:var(--running)"></i>▶ Running</span>
+        <span><i style="background:var(--done)"></i>✓ Done</span>
+        <span><i style="background:var(--fallback)"></i>⚠ Fallback</span>
+        <span><i style="background:var(--text-2);width:2px;height:12px"></i>Deadline</span>
+      </div>
+    </div>
+    <svg id="timeline" role="img" aria-label="Renewable share forecast with planned job windows"></svg>
+  </section>
+
+  <section class="row three">
+    <div class="card panel">
+      <div class="head"><h2>Cumulative CO₂ avoided</h2><span class="hint">kg, estimate vs. starting at submit</span></div>
+      <svg id="co2" role="img" aria-label="Cumulative CO2 avoided over time"></svg>
+    </div>
+    <div class="card panel">
+      <div class="head"><h2>Avoided by team</h2><span class="hint">kg CO₂</span></div>
+      <svg id="teams" role="img" aria-label="CO2 avoided by team"></svg>
+    </div>
+    <div class="card panel">
+      <div class="head"><h2>Greenest hours</h2><span class="hint">forecast share by hour of day (UTC)</span></div>
+      <svg id="heat" role="img" aria-label="Heatmap of renewable share by day and hour"></svg>
+    </div>
+  </section>
+
+  <section class="row two">
+    <div class="card panel">
+      <div class="head"><h2>Jobs</h2><span class="hint" id="jobsHint"></span></div>
+      <div class="scroll"><table id="jobs"><thead><tr>
+        <th>Job</th><th>Team</th><th>Policy</th><th>Status</th><th>Planned start</th><th class="num">Share now → window</th><th class="num">CO₂ avoided</th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
+    <div class="card panel">
+      <div class="head"><h2>Events</h2><span class="hint">as in kubectl describe job</span></div>
+      <div class="scroll"><ul class="events" id="events"></ul></div>
+    </div>
+  </section>
+
+  <footer>
+    <span>Grid data: Energy-Charts.info (Fraunhofer ISE), CC BY 4.0. CO₂ figures are estimates.</span>
+    <span class="spacer"></span>
+    <a href="/metrics">/metrics</a><a href="/api/state">/api/state</a>
+    <a href="https://github.com/mahmudul-islam32/carbon-aware-k8s-scheduler">GitHub</a>
+  </footer>
+</div>
+<div class="tooltip" id="tip" role="tooltip"></div>
+
+<script>
+(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const NS = "http://www.w3.org/2000/svg";
+  const params = new URLSearchParams(location.search);
+  const API = params.get("api") || "api/state";
+  const HOUR = 3600e3;
+  let state = null;
+
+  // ---------- theme ----------
+  const themeKey = "carbon-theme";
+  try { const t = localStorage.getItem(themeKey); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  if (params.get("theme")) document.documentElement.dataset.theme = params.get("theme");
+  $("themeBtn").onclick = () => {
+    const dark = getComputedStyle(document.documentElement).colorScheme === "dark";
+    const next = dark ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem(themeKey, next); } catch (e) {}
+    if (state) render(state);
+  };
+
+  // ---------- helpers ----------
+  const el = (tag, attrs = {}, parent) => {
+    const n = document.createElementNS(NS, tag);
+    for (const k in attrs) n.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(n);
+    return n;
+  };
+  const clear = (svg) => { while (svg.firstChild) svg.removeChild(svg.firstChild); };
+  const t = (iso) => (iso ? new Date(iso).getTime() : null);
+  const pad = (n) => String(n).padStart(2, "0");
+  const fmtTime = (ms) => { const d = new Date(ms); return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`; };
+  const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const fmtDayTime = (ms) => { const d = new Date(ms); return `${DAYS[d.getUTCDay()]} ${fmtTime(ms)}`; };
+  const fmtDur = (s) => {
+    if (s == null) return "—";
+    if (s < 3600) return `${Math.round(s / 60)}m`;
+    const h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60);
+    return m ? `${h}h ${m}m` : `${h}h`;
+  };
+  const fmtKg = (g) => (g == null ? "—" : g >= 1e6 ? `${(g / 1e6).toFixed(2)} t` : `${(g / 1000).toFixed(g < 10000 ? 2 : 1)} kg`);
+  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const width = (svg) => Math.max(280, svg.getBoundingClientRect().width || svg.parentNode.clientWidth || 600);
+
+  const tip = $("tip");
+  const showTip = (html, ev) => {
+    tip.innerHTML = html; tip.style.opacity = 1;
+    const r = tip.getBoundingClientRect();
+    let x = ev.clientX + 14, y = ev.clientY + 14;
+    if (x + r.width > innerWidth - 8) x = ev.clientX - r.width - 14;
+    if (y + r.height > innerHeight - 8) y = ev.clientY - r.height - 14;
+    tip.style.left = `${x}px`; tip.style.top = `${y}px`;
+  };
+  const hideTip = () => { tip.style.opacity = 0; };
+
+  const jobPhase = (j, now) => {
+    if (j.status === "fallback") return "fallback";
+    if (j.status === "held") return "held";
+    const start = t(j.released_at) ?? t(j.planned_start);
+    const end = start + (j.runtime_seconds || 0) * 1000;
+    return now < end ? "running" : "done";
+  };
+  const PHASE = {
+    held: { label: "Planned", icon: "⏸", color: "--held" },
+    running: { label: "Running", icon: "▶", color: "--running" },
+    done: { label: "Done", icon: "✓", color: "--done" },
+    fallback: { label: "Fallback", icon: "⚠", color: "--fallback" },
+  };
+  const shareAt = (forecast, ms) => {
+    let best = null;
+    for (const [ts, s] of forecast) { if (t(ts) <= ms) best = s; else break; }
+    return best;
+  };
+
+  // ---------- timeline: area + gantt ----------
+  function renderTimeline(s) {
+    const svg = $("timeline");
+    clear(svg);
+    const W = width(svg);
+    const now = t(s.now);
+    const x0 = now - 6 * HOUR, x1 = now + 36 * HOUR;
+    const fc = s.forecast.map(([ts, v]) => [t(ts), v]).filter(([ms]) => ms >= x0 - HOUR && ms <= x1 + HOUR);
+    const jobs = s.jobs
+      .filter((j) => {
+        const st = t(j.planned_start) ?? t(j.released_at) ?? now;
+        const end = st + (j.runtime_seconds || 0) * 1000;
+        return end >= x0 && st <= x1;
+      })
+      .sort((a, b) => (t(a.planned_start) ?? 0) - (t(b.planned_start) ?? 0));
+    const lanes = jobs.slice(-14);
+
+    const M = { l: 40, r: 12, t: 10 };
+    const areaH = 200, laneH = 18, gap = 26;
+    const H = M.t + areaH + gap + Math.max(1, lanes.length) * laneH + 22;
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    svg.setAttribute("height", H);
+    const X = (ms) => M.l + ((ms - x0) / (x1 - x0)) * (W - M.l - M.r);
+    const Y = (v) => M.t + areaH - (v / 100) * areaH;
+
+    // grid + y labels
+    for (const v of [0, 25, 50, 75, 100]) {
+      el("line", { x1: M.l, x2: W - M.r, y1: Y(v), y2: Y(v), class: "gridline" }, svg);
+      const lbl = el("text", { x: M.l - 8, y: Y(v) + 4, "text-anchor": "end" }, svg);
+      lbl.textContent = `${v}%`;
+    }
+    // x ticks every 6h, midnight labelled with day
+    const firstTick = Math.ceil(x0 / (6 * HOUR)) * 6 * HOUR;
+    for (let ms = firstTick; ms <= x1; ms += 6 * HOUR) {
+      const d = new Date(ms);
+      el("line", { x1: X(ms), x2: X(ms), y1: M.t, y2: H - 18, class: "gridline" }, svg);
+      const lbl = el("text", { x: X(ms), y: H - 4, "text-anchor": "middle" }, svg);
+      lbl.textContent = d.getUTCHours() === 0 ? DAYS[d.getUTCDay()] : fmtTime(ms);
+    }
+
+    // area
+    if (fc.length > 1) {
+      const clip = el("clipPath", { id: "plotClip" }, el("defs", {}, svg));
+      el("rect", { x: M.l, y: 0, width: W - M.l - M.r, height: H }, clip);
+      const g = el("g", { "clip-path": "url(#plotClip)" }, svg);
+      const line = fc.map(([ms, v], i) => `${i ? "L" : "M"}${X(ms).toFixed(1)},${Y(v).toFixed(1)}`).join("");
+      el("path", { d: `${line}L${X(fc[fc.length - 1][0])},${Y(0)}L${X(fc[0][0])},${Y(0)}Z`, fill: css("--share-fill") }, g);
+      el("path", { d: line, fill: "none", stroke: css("--share"), "stroke-width": 2, "stroke-linejoin": "round" }, g);
+      // past shading
+      el("rect", { x: M.l, y: M.t, width: Math.max(0, X(now) - M.l), height: areaH, fill: css("--surface-2"), opacity: 0.55 }, g);
+    }
+
+    // planned windows highlighted on the curve
+    for (const j of lanes) {
+      const st = t(j.planned_start) ?? t(j.released_at);
+      if (st == null || j.status !== "held") continue;
+      const en = st + (j.runtime_seconds || 0) * 1000;
+      el("rect", { x: X(st), y: M.t, width: Math.max(1, X(en) - X(st)), height: areaH, fill: css("--held"), opacity: 0.06 }, svg);
+    }
+
+    // now line
+    el("line", { x1: X(now), x2: X(now), y1: M.t - 4, y2: H - 18, stroke: css("--now"), "stroke-width": 1.5 }, svg);
+    const nowLbl = el("text", { x: X(now) + 5, y: M.t + 8, style: `fill:${css("--text")};font-weight:600` }, svg);
+    nowLbl.textContent = "now";
+
+    // lanes
+    const laneTop = M.t + areaH + gap;
+    const laneLbl = el("text", { x: M.l, y: laneTop - 8, style: `fill:${css("--text-2")};font-weight:600` }, svg);
+    laneLbl.textContent = lanes.length ? `Job plan (${lanes.length} shown)` : "No jobs in view yet";
+    lanes.forEach((j, i) => {
+      const y = laneTop + i * laneH;
+      const phase = jobPhase(j, now);
+      const color = css(PHASE[phase].color);
+      const sub = t(j.submitted);
+      const st = t(j.released_at) ?? t(j.planned_start) ?? now;
+      const en = st + (j.runtime_seconds || 0) * 1000;
+      const g = el("g", { class: "lane" }, svg);
+      el("rect", { x: M.l, y: y, width: W - M.l - M.r, height: laneH, fill: "transparent" }, g);
+      if (sub != null && sub < st) {
+        el("line", { x1: X(Math.max(sub, x0)), x2: X(st), y1: y + laneH / 2, y2: y + laneH / 2, stroke: css("--text-3"), "stroke-width": 1.5, opacity: 0.7 }, g);
+        el("circle", { cx: X(Math.max(sub, x0)), cy: y + laneH / 2, r: 2.5, fill: css("--text-3") }, g);
+      }
+      const bx = X(Math.max(st, x0));
+      el("rect", { x: bx, y: y + 3, width: Math.max(3, X(en) - bx), height: laneH - 6, rx: 3, fill: color }, g);
+      const dl = t(j.deadline);
+      if (dl != null && dl <= x1) {
+        el("line", { x1: X(dl), x2: X(dl), y1: y + 1, y2: y + laneH - 1, stroke: css("--text-2"), "stroke-width": 2 }, g);
+      }
+      const label = el("text", { x: Math.min(X(en) + 6, W - M.r - 4), y: y + laneH / 2 + 4, "text-anchor": X(en) + 140 > W ? "end" : "start" }, g);
+      if (X(en) + 140 > W) label.setAttribute("x", bx - 6);
+      label.textContent = j.name;
+      g.addEventListener("mousemove", (ev) => {
+        const share = j.expected_share_pct != null ? `${j.expected_share_pct.toFixed(1)}%` : "—";
+        const base = j.baseline_share_pct != null ? `${j.baseline_share_pct.toFixed(1)}% → ` : "";
+        showTip(
+          `<b>${j.namespace}/${j.name}</b><br><span class="muted">${PHASE[phase].icon} ${PHASE[phase].label} · ${j.policy || "—"}</span><br>` +
+          `Submitted ${sub ? fmtDayTime(sub) : "—"}<br>Start ${fmtDayTime(st)} · runs ${fmtDur(j.runtime_seconds)}<br>` +
+          `Deadline ${dl ? fmtDayTime(dl) : "—"}<br>Renewable share ${base}${share}<br>` +
+          `CO₂ avoided ≈ ${j.co2_avoided_g != null ? j.co2_avoided_g.toFixed(0) + " g" : "—"}` +
+          (j.fallback_reason ? `<br><span class="muted">⚠ ${j.fallback_reason}</span>` : ""), ev);
+      });
+      g.addEventListener("mouseleave", hideTip);
+    });
+
+    // crosshair over the area
+    const hover = el("rect", { x: M.l, y: M.t, width: W - M.l - M.r, height: areaH, fill: "transparent" }, svg);
+    const cross = el("line", { y1: M.t, y2: M.t + areaH, stroke: css("--text-3"), "stroke-width": 1, visibility: "hidden" }, svg);
+    const dot = el("circle", { r: 4.5, fill: css("--share"), stroke: css("--surface"), "stroke-width": 2, visibility: "hidden" }, svg);
+    hover.addEventListener("mousemove", (ev) => {
+      if (!fc.length) return;
+      const r = svg.getBoundingClientRect();
+      const px = ((ev.clientX - r.left) / r.width) * W;
+      const ms = x0 + ((px - M.l) / (W - M.l - M.r)) * (x1 - x0);
+      let best = fc[0];
+      for (const p of fc) if (Math.abs(p[0] - ms) < Math.abs(best[0] - ms)) best = p;
+      cross.setAttribute("x1", X(best[0])); cross.setAttribute("x2", X(best[0]));
+      dot.setAttribute("cx", X(best[0])); dot.setAttribute("cy", Y(best[1]));
+      cross.setAttribute("visibility", "visible"); dot.setAttribute("visibility", "visible");
+      const inWin = lanes.filter((j) => j.status === "held" && t(j.planned_start) <= best[0] && best[0] <= t(j.planned_start) + j.runtime_seconds * 1000).length;
+      showTip(`<b>${fmtDayTime(best[0])} UTC</b><br>Renewable share <b>${best[1].toFixed(1)}%</b>` +
+        (best[0] > now ? `<br><span class="muted">forecast</span>` : `<br><span class="muted">past</span>`) +
+        (inWin ? `<br>${inWin} planned job${inWin > 1 ? "s" : ""} running` : ""), ev);
+    });
+    hover.addEventListener("mouseleave", () => { hideTip(); cross.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); });
+  }
+
+  // ---------- cumulative CO2 ----------
+  function renderCo2(s) {
+    const svg = $("co2");
+    clear(svg);
+    const W = width(svg), H = 190, M = { l: 44, r: 12, t: 14, b: 22 };
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("height", H);
+    const pts = s.co2_series.map(([ts, g]) => [t(ts), g / 1000]);
+    const now = t(s.now);
+    if (pts.length < 1) { const e = el("text", { x: W / 2, y: H / 2, "text-anchor": "middle" }, svg); e.textContent = "No planned releases yet"; return; }
+    const xs0 = Math.min(pts[0][0], now - 6 * HOUR);
+    const all = [[xs0, 0], ...pts, [now, pts[pts.length - 1][1]]];
+    const ymax = Math.max(0.1, ...all.map((p) => p[1])) * 1.15;
+    const X = (ms) => M.l + ((ms - xs0) / Math.max(1, now - xs0)) * (W - M.l - M.r);
+    const Y = (v) => M.t + (H - M.t - M.b) * (1 - v / ymax);
+    for (let i = 0; i <= 4; i++) {
+      const v = (ymax / 4) * i;
+      el("line", { x1: M.l, x2: W - M.r, y1: Y(v), y2: Y(v), class: "gridline" }, svg);
+      const l = el("text", { x: M.l - 6, y: Y(v) + 4, "text-anchor": "end" }, svg);
+      l.textContent = v >= 10 ? v.toFixed(0) : v.toFixed(1);
+    }
+    const ticks = W < 480 ? 2 : 4;
+    for (let i = 0; i <= ticks; i++) {
+      const ms = xs0 + ((now - xs0) / ticks) * i;
+      const l = el("text", { x: X(ms), y: H - 4, "text-anchor": i === 0 ? "start" : i === ticks ? "end" : "middle" }, svg);
+      l.textContent = fmtDayTime(ms);
+    }
+    // step line
+    let d = `M${X(all[0][0])},${Y(0)}`;
+    for (let i = 1; i < all.length; i++) d += `H${X(all[i][0]).toFixed(1)}V${Y(all[i][1]).toFixed(1)}`;
+    el("path", { d: `${d}V${Y(0)}Z`, fill: css("--co2"), opacity: 0.1 }, svg);
+    el("path", { d, fill: "none", stroke: css("--co2"), "stroke-width": 2, "stroke-linejoin": "round" }, svg);
+    const last = all[all.length - 1];
+    el("circle", { cx: X(last[0]), cy: Y(last[1]), r: 4, fill: css("--co2"), stroke: css("--surface"), "stroke-width": 2 }, svg);
+    const lbl = el("text", { x: X(last[0]) - 8, y: Y(last[1]) - 9, "text-anchor": "end", style: `fill:${css("--text")};font-weight:600` }, svg);
+    lbl.textContent = `${last[1].toFixed(2)} kg`;
+    const hover = el("rect", { x: M.l, y: M.t, width: W - M.l - M.r, height: H - M.t - M.b, fill: "transparent" }, svg);
+    hover.addEventListener("mousemove", (ev) => {
+      const r = svg.getBoundingClientRect();
+      const ms = xs0 + (((ev.clientX - r.left) / r.width) * W - M.l) / (W - M.l - M.r) * (now - xs0);
+      let v = 0; for (const p of all) if (p[0] <= ms) v = p[1];
+      showTip(`<b>${fmtDayTime(ms)} UTC</b><br>${v.toFixed(2)} kg CO₂ avoided`, ev);
+    });
+    hover.addEventListener("mouseleave", hideTip);
+  }
+
+  // ---------- by team ----------
+  function renderTeams(s) {
+    const svg = $("teams");
+    clear(svg);
+    const agg = {};
+    for (const j of s.jobs) {
+      if (j.status !== "released" || !j.co2_avoided_g) continue;
+      const k = j.team || j.namespace;
+      agg[k] = (agg[k] || 0) + j.co2_avoided_g;
+    }
+    const rows = Object.entries(agg).sort((a, b) => b[1] - a[1]).slice(0, 6);
+    const W = width(svg), rowH = 28, H = Math.max(190, rows.length * rowH + 10);
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("height", H);
+    if (!rows.length) { const e = el("text", { x: W / 2, y: H / 2, "text-anchor": "middle" }, svg); e.textContent = "No releases yet"; return; }
+    const labelW = 104, valW = 62;
+    const max = rows[0][1];
+    rows.forEach(([team, g], i) => {
+      const y = 6 + i * rowH;
+      const l = el("text", { x: 0, y: y + 14, style: `fill:${css("--text-2")}` }, svg); l.textContent = team;
+      const bw = Math.max(3, ((W - labelW - valW) * g) / max);
+      el("rect", { x: labelW, y: y + 4, width: bw, height: 14, rx: 3, fill: css("--co2") }, svg);
+      const v = el("text", { x: labelW + bw + 6, y: y + 15, style: `fill:${css("--text")}` }, svg); v.textContent = (g / 1000).toFixed(2);
+      const hit = el("rect", { x: 0, y, width: W, height: rowH, fill: "transparent" }, svg);
+      hit.addEventListener("mousemove", (ev) => showTip(`<b>${team}</b><br>${fmtKg(g)} CO₂ avoided`, ev));
+      hit.addEventListener("mouseleave", hideTip);
+    });
+  }
+
+  // ---------- heatmap ----------
+  function renderHeat(s) {
+    const svg = $("heat");
+    clear(svg);
+    const now = t(s.now);
+    const byDay = new Map();
+    for (const [ts, v] of s.forecast) {
+      const ms = t(ts);
+      if (ms < now - 24 * HOUR || ms > now + 48 * HOUR) continue;
+      const d = new Date(ms);
+      const key = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+      if (!byDay.has(key)) byDay.set(key, Array.from({ length: 24 }, () => []));
+      byDay.get(key)[d.getUTCHours()].push(v);
+    }
+    const days = [...byDay.keys()].sort().slice(-4);
+    const W = width(svg), labelW = 40, top = 4, cellH = 28;
+    const cw = (W - labelW) / 24;
+    const H = top + Math.max(1, days.length) * cellH + 40;
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("height", H);
+    const steps = ["--heat-0", "--heat-1", "--heat-2", "--heat-3", "--heat-4", "--heat-5"].map(css);
+    const bin = (v) => Math.min(5, Math.floor(v / (100 / 6)));
+    days.forEach((day, r) => {
+      const y = top + r * cellH;
+      const l = el("text", { x: 0, y: y + cellH / 2 + 4, style: `fill:${css("--text-2")}` }, svg); l.textContent = DAYS[new Date(day).getUTCDay()];
+      byDay.get(day).forEach((vals, h) => {
+        if (!vals.length) return;
+        const v = vals.reduce((a, b) => a + b, 0) / vals.length;
+        const cell = el("rect", { x: labelW + h * cw + 1, y: y + 1, width: Math.max(1, cw - 2), height: cellH - 2, rx: 3, fill: steps[bin(v)] }, svg);
+        cell.addEventListener("mousemove", (ev) => showTip(`<b>${DAYS[new Date(day).getUTCDay()]} ${pad(h)}:00–${pad(h + 1)}:00 UTC</b><br>Mean share ${v.toFixed(1)}%`, ev));
+        cell.addEventListener("mouseleave", hideTip);
+      });
+    });
+    for (const h of [0, 6, 12, 18, 23]) {
+      const l = el("text", { x: labelW + h * cw + cw / 2, y: top + days.length * cellH + 14, "text-anchor": "middle" }, svg);
+      l.textContent = pad(h);
+    }
+    // scale legend
+    const ly = top + days.length * cellH + 24;
+    steps.forEach((c, i) => el("rect", { x: labelW + i * 26, y: ly, width: 24, height: 8, rx: 2, fill: c }, svg));
+    const lo = el("text", { x: labelW + 6 * 26 + 6, y: ly + 8 }, svg); lo.textContent = "0 → 100 % renewable";
+  }
+
+  // ---------- table & events ----------
+  function renderTable(s) {
+    const tb = $("jobs").querySelector("tbody");
+    const now = t(s.now);
+    const jobs = [...s.jobs].sort((a, b) => {
+      const order = { held: 0, running: 1, fallback: 2, done: 3 };
+      const pa = order[jobPhase(a, now)], pb = order[jobPhase(b, now)];
+      return pa - pb || (t(b.planned_start) ?? 0) - (t(a.planned_start) ?? 0);
+    }).slice(0, 60);
+    $("jobsHint").textContent = `${s.jobs.length} tracked`;
+    tb.innerHTML = jobs.length ? "" : `<tr><td colspan="7" class="empty">No flexible Jobs seen yet</td></tr>`;
+    for (const j of jobs) {
+      const ph = jobPhase(j, now), P = PHASE[ph];
+      const base = j.baseline_share_pct != null ? `${j.baseline_share_pct.toFixed(0)}%` : "—";
+      const win = j.expected_share_pct != null ? `${j.expected_share_pct.toFixed(0)}%` : "—";
+      const gain = j.baseline_share_pct != null && j.expected_share_pct != null ? j.expected_share_pct - j.baseline_share_pct : null;
+      const tr = document.createElement("tr");
+      tr.innerHTML =
+        `<td title="${j.namespace}/${j.name}"><b>${j.name}</b></td>` +
+        `<td>${j.team || "—"}</td><td>${j.policy || "—"}</td>` +
+        `<td><span class="chip"><i style="background:var(${P.color})"></i>${P.icon} ${P.label}</span></td>` +
+        `<td>${j.planned_start ? fmtDayTime(t(j.planned_start)) : "—"}</td>` +
+        `<td class="num">${base} → ${win}${gain != null && gain > 0.5 ? ` <span class="up">+${gain.toFixed(0)}</span>` : ""}</td>` +
+        `<td class="num">${j.co2_avoided_g != null ? j.co2_avoided_g.toFixed(0) + " g" : "—"}</td>`;
+      tb.appendChild(tr);
+    }
+  }
+  function renderEvents(s) {
+    const ul = $("events");
+    const evs = s.events.slice(0, 40);
+    ul.innerHTML = evs.length ? "" : `<li class="empty" style="display:block">No events yet</li>`;
+    for (const e of evs) {
+      const li = document.createElement("li");
+      const warn = e.type === "Warning";
+      li.innerHTML = `<time>${fmtTime(t(e.time))}</time><div><span class="reason ${warn ? "warn" : ""}">${warn ? "⚠ " : ""}${e.reason}</span> <span>${e.namespace}/${e.name}</span><div class="msg">${e.message}</div></div>`;
+      ul.appendChild(li);
+    }
+  }
+
+  // ---------- KPIs ----------
+  function renderKpis(s) {
+    const T = s.totals;
+    const now = t(s.now);
+    $("mode").innerHTML = `<span class="dot"></span><span>${s.mode === "demo" ? "DEMO · simulated cluster" : "LIVE"}</span>`;
+    $("meta").textContent = `grid ${String(s.country).toUpperCase()} · policy ${s.policy}`;
+    $("clock").textContent = `${fmtDayTime(now)} UTC`;
+    $("kShare").innerHTML = T.share_now != null ? `${T.share_now.toFixed(1)}<small>%</small>` : "—";
+    $("kShareBar").style.width = `${T.share_now || 0}%`;
+    let peakAt = null;
+    for (const [ts, v] of s.forecast) if (t(ts) >= now && v === T.share_peak_ahead) { peakAt = t(ts); break; }
+    $("kPeak").innerHTML = T.share_peak_ahead != null ? `${T.share_peak_ahead.toFixed(0)}<small>%</small>` : "—";
+    $("kPeakSub").textContent = peakAt ? `at ${fmtDayTime(peakAt)} UTC (in ${fmtDur((peakAt - now) / 1000)})` : "—";
+    $("kHeld").textContent = T.held;
+    $("kReleased").textContent = T.released + T.fallback;
+    $("kReleasedSub").textContent = `${T.fallback} fallback${T.fallback === 1 ? "" : "s"} (fail-open)`;
+    $("kCo2").innerHTML = (T.co2_avoided_g / 1000).toFixed(2) + "<small>kg</small>";
+    $("kCo2Sub").textContent = `+${fmtKg(T.co2_planned_g)} planned in held jobs`;
+    $("kDelay").textContent = fmtDur(T.mean_delay_seconds);
+  }
+
+  function render(s) {
+    renderKpis(s); renderTimeline(s); renderCo2(s); renderTeams(s); renderHeat(s); renderTable(s); renderEvents(s);
+  }
+
+  async function poll() {
+    try {
+      const r = await fetch(API, { cache: "no-store" });
+      state = await r.json();
+      render(state);
+    } catch (e) {
+      $("mode").innerHTML = `<span class="dot" style="background:var(--fallback)"></span><span>disconnected</span>`;
+    }
+    const interval = Number(params.get("refresh")) || (state && state.mode === "demo" ? 1000 : 10000);
+    setTimeout(poll, interval);
+  }
+  addEventListener("resize", () => state && render(state));
+  poll();
+})();
+</script>
+</body>
+</html>

@@ -74,29 +74,31 @@ def how_it_works():
 LANES = [
     ("Core control loop", "#16a34a", [
         ("F-01", "Annotation contract", "done"), ("F-02", "Suspend & release", "improved"),
-        ("F-05", "Deadline guarantee", "done"), ("F-12", "Kubernetes Events", "improved"),
-        ("F-14", "Per-job overrides", "new"), ("F-15", "Max-delay cap", "new"),
-        ("F-21", "Mutating webhook", "planned"), ("F-22", "Relative deadlines", "planned"),
+        ("F-05", "Deadline guarantee", "done"), ("F-12", "Kubernetes Events", "done"),
+        ("F-14", "Per-job overrides", "done"), ("F-15", "Max-delay cap", "done"),
+        ("F-22", "Relative deadlines", "new"), ("F-21", "Mutating webhook", "planned"),
         ("F-27", "HA leader election", "planned")]),
     ("Grid data", "#0d9488", [
-        ("F-03", "Energy-Charts client", "done"), ("F-20", "Re-plan on refresh", "new"),
-        ("F-28", "More data providers", "planned")]),
+        ("F-03", "Energy-Charts client", "done"), ("F-38", "Synthetic grid data", "new"),
+        ("F-20", "Re-plan on refresh", "new"), ("F-28", "More data providers", "planned")]),
     ("Planning", "#2563eb", [
-        ("F-04", "Window policies", "done"), ("F-23", "Lowest-carbon policy", "planned"),
-        ("F-26", "Release staggering", "planned"), ("F-30", "Runtime learning", "planned"),
+        ("F-04", "Window policies", "done"), ("F-23", "Balanced policy", "new"),
+        ("F-26", "Release staggering", "new"), ("F-30", "Runtime learning", "planned"),
         ("F-24", "Spatial shifting", "planned")]),
     ("Carbon accounting", "#65a30d", [
-        ("F-06", "CO₂ estimation", "done"), ("F-16", "Live CO₂ per job", "new"),
+        ("F-06", "CO₂ estimation", "done"), ("F-16", "Live CO₂ per job", "done"),
         ("F-25", "Team carbon budgets", "planned"), ("F-31", "Measured energy", "planned")]),
     ("Observability", "#7c3aed", [
         ("F-07", "Prometheus metrics", "done"), ("F-08", "Grafana dashboard", "done"),
-        ("F-13", "Health probes", "new"), ("F-19", "Grid & API metrics", "new"),
-        ("F-32", "Alert rules", "planned")]),
+        ("F-13", "Health probes", "done"), ("F-19", "Grid & API metrics", "done"),
+        ("F-35", "Live web dashboard", "new"), ("F-36", "Dashboard demo mode", "new"),
+        ("F-32", "Alert rules", "new")]),
     ("Tooling & delivery", "#db2777", [
         ("F-09", "Backtest CLI", "done"), ("F-10", "Helm chart & RBAC", "done"),
-        ("F-17", "Dry-run planner", "new"), ("F-18", "CI pipeline", "new"),
-        ("F-33", "E2E tests on kind", "planned"), ("F-34", "Release pipeline", "planned"),
-        ("F-29", "kubectl plugin", "planned"), ("F-11", "KEDA mode", "planned")]),
+        ("F-17", "Dry-run planner", "done"), ("F-18", "CI pipeline", "done"),
+        ("F-29", "kubectl plugin", "new"), ("F-37", "HTML report & showcase", "new"),
+        ("F-33", "E2E tests on kind", "planned"), ("F-34", "Release pipeline", "new"),
+        ("F-11", "KEDA mode", "planned")]),
 ]
 def feature_map():
     lw, gap, x0, y0, th, tg = 178, 12, 40, 150, 40, 8
@@ -143,16 +145,13 @@ def feature_map():
 # ---------------------------------------------------------------- roadmap
 WAVES = [
     ("NOW", "Small, high impact · next 1–2 weeks", "#16a34a", [
-        ("F-22", "Relative deadlines for CronJobs", "S"), ("F-32", "PrometheusRule alert pack", "S"),
-        ("F-34", "Image + chart release pipeline", "S")]),
+        ("F-33", "E2E tests on kind in CI", "M"),
+        ("F-21", "Mutating webhook", "M")]),
     ("NEXT", "Hardening & scale · next month", "#2563eb", [
-        ("F-21", "Mutating webhook", "M"), ("F-26", "Release staggering", "M"),
-        ("F-27", "HA with leader election", "M"), ("F-33", "E2E tests on kind in CI", "M"),
-        ("F-23", "Lowest-carbon policy", "M")]),
+        ("F-27", "HA with leader election", "M"), ("F-25", "Team carbon budgets", "M"),
+        ("F-28", "More grid data providers", "L"), ("F-30", "Runtime learning", "M")]),
     ("LATER", "Exploration · research track", "#7c3aed", [
         ("F-11", "KEDA ScaledJob mode", "L"), ("F-24", "Spatial (multi-region) shifting", "L"),
-        ("F-25", "Team carbon budgets", "L"), ("F-28", "More grid data providers", "L"),
-        ("F-29", "kubectl carbon plugin", "M"), ("F-30", "Runtime learning", "M"),
         ("F-31", "Measured energy via Kepler", "L")]),
 ]
 EFFORT = {"S": "#16a34a", "M": "#d97706", "L": "#dc2626"}

@@ -8,7 +8,7 @@ Provides commands for:
 """
 
 import asyncio
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import click
@@ -16,6 +16,7 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
+from carbon_scheduler import __version__
 from carbon_scheduler.carbon.live import JobResources
 from carbon_scheduler.controller.annotations import (
     AnnotationError,
@@ -23,10 +24,12 @@ from carbon_scheduler.controller.annotations import (
     parse_iso8601_datetime,
 )
 from carbon_scheduler.planner.models import Forecast, PolicyConfig
-from carbon_scheduler.planner.policies import PolicyName
+from carbon_scheduler.planner.policies import POLICY_NAMES, PolicyName
 from carbon_scheduler.sim.backtest import Backtest, BacktestResult
 from carbon_scheduler.sim.historical import (
+    HistoricalData,
     HistoricalDataFetcher,
+    HistoricalDataPoint,
     HistoricalDataStore,
 )
 from carbon_scheduler.sim.plan import (
@@ -43,7 +46,7 @@ from carbon_scheduler.sim.trace import (
 
 console = Console()
 
-VALID_POLICIES: list[PolicyName] = ["immediate", "threshold", "greenest-window"]
+VALID_POLICIES: list[PolicyName] = list(POLICY_NAMES)
 
 
 def parse_date(
@@ -73,17 +76,12 @@ def parse_policies(
             raise click.BadParameter(
                 f"Unknown policy: {policy_name}. Valid policies: {', '.join(VALID_POLICIES)}"
             )
-        if policy_name == "immediate":
-            policies.append("immediate")
-        elif policy_name == "threshold":
-            policies.append("threshold")
-        elif policy_name == "greenest-window":
-            policies.append("greenest-window")
+        policies.append(POLICY_NAMES[POLICY_NAMES.index(policy_name)])
     return policies
 
 
 @click.group()
-@click.version_option(version="0.1.0", prog_name="carbon-sim")
+@click.version_option(version=__version__, prog_name="carbon-sim")
 def main() -> None:
     """Carbon-aware scheduler simulation and backtest tool.
 
@@ -502,6 +500,148 @@ def plan_command(
         table.add_row("Share if started now", f"{avoided.baseline_share_pct:.1f}%")
         table.add_row("Est. CO₂ avoided", f"{grams} ({avoided.energy_kwh:.2f} kWh, estimate)")
     console.print(table)
+
+
+def _synthetic_history(start: date, end: date, seed: int) -> HistoricalData:
+    """Synthetic 15-minute history covering ``start`` to ``end`` inclusive."""
+    from carbon_scheduler.sim.synthetic import synthetic_shares
+
+    begin = datetime(start.year, start.month, start.day, tzinfo=UTC)
+    hours = ((end - start).days + 1) * 24 - 0.25
+    return HistoricalData(
+        [HistoricalDataPoint(ts, share) for ts, share in synthetic_shares(begin, hours, seed=seed)]
+    )
+
+
+@main.command("synth")
+@click.option("--start", required=True, callback=parse_date, help="Start date (YYYY-MM-DD)")
+@click.option("--end", required=True, callback=parse_date, help="End date (YYYY-MM-DD)")
+@click.option("--seed", default=42, show_default=True, help="Random seed")
+@click.option("--output", "-o", required=True, type=click.Path(path_type=Path),
+              help="Output directory (same layout as 'fetch')")
+def synth_command(start: date, end: date, seed: int, output: Path) -> None:
+    """Generate synthetic grid history for offline backtests (no network)."""
+    if start > end:
+        raise click.BadParameter("Start date must be before end date")
+    data = _synthetic_history(start, end, seed)
+    HistoricalDataStore(output).save(data, start, end)
+    console.print(f"[green]Synthetic data for {start} to {end} saved to {output}[/green]")
+    console.print(f"  Points: {len(data.points)} (15-minute resolution, seed {seed})")
+
+
+@main.command("report")
+@click.argument("results_file", type=click.Path(exists=True, path_type=Path))
+@click.option("--data", "-d", type=click.Path(exists=True, path_type=Path), default=None,
+              help="Historical data directory, adds the grid chart")
+@click.option("--output", "-o", type=click.Path(path_type=Path), default=Path("report.html"),
+              show_default=True, help="HTML file to write")
+@click.option("--title", default="Carbon-aware scheduling backtest", show_default=True)
+def report_command(results_file: Path, data: Path | None, output: Path, title: str) -> None:
+    """Render backtest results as a self-contained HTML report with charts."""
+    from carbon_scheduler.sim.report import render_report
+
+    result = BacktestResult.load_csv(results_file)
+    if not result.policy_results:
+        raise click.ClickException("No results found in file")
+    historical = HistoricalDataStore(data).load() if data else None
+    output.write_text(render_report(result, historical, title=title), encoding="utf-8")
+    console.print(f"[green]Report written to {output}[/green]")
+
+
+@main.command("showcase")
+@click.option("--output", "-o", type=click.Path(path_type=Path), default=Path("showcase"),
+              show_default=True, help="Directory for data, trace, results and report")
+@click.option("--days", default=30, show_default=True, help="Days of synthetic grid data")
+@click.option("--jobs", "num_jobs", default=300, show_default=True, help="Jobs in the trace")
+@click.option("--seed", default=42, show_default=True, help="Random seed")
+def showcase_command(output: Path, days: int, num_jobs: int, seed: int) -> None:
+    """Run the full pipeline offline: synth data → trace → backtest → HTML report."""
+    from carbon_scheduler.sim.report import render_report
+
+    output.mkdir(parents=True, exist_ok=True)
+    end = date(2026, 6, 30)
+    start = end - timedelta(days=days - 1)
+    data = _synthetic_history(start, end, seed)
+    HistoricalDataStore(output / "data").save(data, start, end)
+
+    trace = SyntheticTraceGenerator(seed=seed).generate(
+        num_jobs=num_jobs,
+        start_time=datetime(start.year, start.month, start.day, tzinfo=UTC),
+        end_time=datetime(end.year, end.month, end.day, tzinfo=UTC) - timedelta(days=1),
+        slack_min=timedelta(hours=2),
+        slack_max=timedelta(hours=12),
+        runtime_min=timedelta(minutes=30),
+        runtime_max=timedelta(hours=3),
+    )
+    trace.save(output / "trace.json")
+
+    result = Backtest(data).run(trace, list(POLICY_NAMES))
+    result.save_csv(output / "results.csv")
+    (output / "report.html").write_text(
+        render_report(result, data, title=f"{days}-day backtest on synthetic grid data"),
+        encoding="utf-8",
+    )
+    _print_summary_table(result)
+    console.print(f"\n[green]Report: {output / 'report.html'}[/green]")
+
+
+@main.command("dashboard")
+@click.option("--port", default=8080, show_default=True, help="Port to serve on")
+@click.option("--host", default="127.0.0.1", show_default=True, help="Address to bind")
+@click.option("--speed", default=1200.0, show_default=True,
+              help="Simulated seconds per real second")
+@click.option("--seed", default=7, show_default=True, help="Random seed for the demo")
+@click.option("--live-forecast", is_flag=True,
+              help="Plan demo jobs against the live Energy-Charts forecast")
+@click.option("--country", default="de", show_default=True, help="Energy-Charts country code")
+@click.option("--start", "start_str", default=None,
+              help="Simulated start time (ISO 8601), e.g. a sunny June morning")
+@click.option("--duration", default=0.0, hidden=True, help="Exit after N seconds (testing)")
+def dashboard_command(
+    port: int,
+    host: str,
+    speed: float,
+    seed: int,
+    live_forecast: bool,
+    country: str,
+    start_str: str | None,
+    duration: float,
+) -> None:
+    """Run the web dashboard against a simulated cluster (no Kubernetes needed)."""
+    import time
+
+    from carbon_scheduler.dashboard.demo import DemoCluster
+    from carbon_scheduler.metrics.prometheus import set_ready, start_metrics_server
+
+    forecast = asyncio.run(_fetch_live_forecast(country)) if live_forecast else None
+    if forecast is not None and not forecast.points:
+        console.print("[yellow]Live forecast empty, using synthetic data[/yellow]")
+        forecast = None
+
+    try:
+        start = parse_iso8601_datetime(start_str) if start_str else None
+    except AnnotationError as e:
+        raise click.BadParameter(str(e), param_hint="--start") from e
+    demo = DemoCluster(forecast=forecast, speed=speed, seed=seed, start=start)
+    demo.state.configure(country=country)
+    demo.start()
+    server = start_metrics_server(port, addr=host)
+    set_ready(True)
+    console.print(
+        f"[bold green]🌱 Dashboard running:[/bold green] http://{host}:{server.server_port}/ "
+        f"[dim](demo, {speed:.0f}x speed, Ctrl+C to stop)[/dim]"
+    )
+    try:
+        if duration > 0:
+            time.sleep(duration)
+        else:
+            while True:
+                time.sleep(3600)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        demo.stop()
+        server.shutdown()
 
 
 async def _fetch_live_forecast(country: str) -> Forecast:

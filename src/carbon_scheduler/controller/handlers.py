@@ -28,11 +28,15 @@ from carbon_scheduler.controller.annotations import (
     parse_iso8601_datetime,
 )
 from carbon_scheduler.controller.scheduler import JobScheduler
+from carbon_scheduler.controller.staggering import ReleaseLimiter, is_deadline_critical
+from carbon_scheduler.dashboard.records import record_from_annotations
+from carbon_scheduler.dashboard.state import STATE
 from carbon_scheduler.grid import EnergyChartsClient
 from carbon_scheduler.metrics.prometheus import (
     record_co2_avoided,
     record_fallback_release,
     record_job_released,
+    record_release_deferred,
     set_ready,
     track_held_job,
     untrack_held_job,
@@ -42,6 +46,7 @@ logger = structlog.get_logger(__name__)
 
 _scheduler: JobScheduler | None = None
 _settings: Settings | None = None
+_limiter: ReleaseLimiter | None = None
 
 # Read once at import: kopf needs the timer interval when the handler is registered.
 RELEASE_TIMER_INTERVAL = float(get_settings().reconcile_interval_seconds)
@@ -54,6 +59,20 @@ def get_scheduler() -> JobScheduler:
         _settings = get_settings()
         _scheduler = JobScheduler(settings=_settings)
     return _scheduler
+
+
+def get_limiter() -> ReleaseLimiter:
+    """Get or create the global release limiter (F-26)."""
+    global _limiter
+    if _limiter is None:
+        _limiter = ReleaseLimiter(get_settings().max_releases_per_minute)
+    return _limiter
+
+
+def set_limiter(limiter: ReleaseLimiter | None) -> None:
+    """Replace the global release limiter (for testing)."""
+    global _limiter
+    _limiter = limiter
 
 
 def set_scheduler(scheduler: JobScheduler) -> None:
@@ -91,6 +110,8 @@ async def emit_event(
         message=message,
         event_type=event_type,
     )
+
+    STATE.add_event(namespace, name, reason, message, event_type)
 
     if body is None:
         return
@@ -184,9 +205,10 @@ async def handle_job_create(
 
     annotations = meta.get("annotations", {})
     now = datetime.now(UTC)
+    submitted = _submit_time(meta)
 
     try:
-        parse_annotations(annotations)
+        parse_annotations(annotations, submit_time=submitted or now)
     except AnnotationError as e:
         await emit_event(
             name=name,
@@ -203,6 +225,12 @@ async def handle_job_create(
         ] = now.isoformat()
         record_fallback_release(namespace, name)
         record_job_released(namespace, name, adjust_held=False)
+        STATE.upsert_job(
+            record_from_annotations(
+                namespace, name, annotations, "fallback", submitted, meta.get("labels")
+            )
+        )
+        STATE.mark_released(namespace, name, fallback=True, reason="validation_error", at=now)
 
         logger.warning(
             "job_validation_failed_releasing",
@@ -219,12 +247,23 @@ async def handle_job_create(
         job_namespace=namespace,
         annotations=annotations,
         job_spec=dict(spec),
+        submit_time=submitted,
     )
 
     if decision.annotations_to_set:
         patch.setdefault("metadata", {}).setdefault("annotations", {}).update(
             decision.annotations_to_set
         )
+    STATE.upsert_job(
+        record_from_annotations(
+            namespace,
+            name,
+            {**annotations, **decision.annotations_to_set},
+            "held",
+            submitted or now,
+            meta.get("labels"),
+        )
+    )
 
     if decision.should_release:
         patch.setdefault("spec", {})["suspend"] = False
@@ -236,6 +275,13 @@ async def handle_job_create(
             name,
             delay_seconds=_delay_seconds(meta, now),
             adjust_held=False,
+        )
+        STATE.mark_released(
+            namespace,
+            name,
+            fallback=decision.is_fallback,
+            reason=decision.fallback_reason,
+            at=now,
         )
 
         if decision.is_fallback:
@@ -334,7 +380,7 @@ async def handle_job_timer(
         return None
 
     try:
-        parsed = parse_annotations(annotations)
+        parsed = parse_annotations(annotations, submit_time=_submit_time(meta))
     except AnnotationError:
         return None
 
@@ -372,6 +418,24 @@ async def handle_job_timer(
     if not scheduler.should_release_now(parsed, current_time):
         if parsed.planned_start is not None:
             track_held_job(namespace, name)
+            # Rebuild the dashboard view after a controller restart
+            STATE.upsert_job(
+                record_from_annotations(
+                    namespace, name, annotations, "held", _submit_time(meta), meta.get("labels")
+                )
+            )
+        return None
+
+    # F-26: spread planned releases out, but never at the cost of a deadline.
+    settings = _settings or get_settings()
+    safety_margin = timedelta(minutes=settings.deadline_safety_margin_minutes)
+    latest = parsed.latest_start or (parsed.deadline - parsed.estimated_runtime - safety_margin)
+    critical = is_deadline_critical(
+        current_time, latest, timedelta(seconds=settings.reconcile_interval_seconds)
+    )
+    if not get_limiter().try_acquire(current_time, critical=critical):
+        logger.info("release_deferred_staggering", job_name=name, namespace=namespace)
+        record_release_deferred(namespace)
         return None
 
     patch.setdefault("spec", {})["suspend"] = False
@@ -391,6 +455,18 @@ async def handle_job_timer(
         name,
         delay_seconds=_delay_seconds(meta, current_time),
         adjust_held=False,
+    )
+    STATE.upsert_job(
+        record_from_annotations(
+            namespace, name, annotations, "held", _submit_time(meta), meta.get("labels")
+        )
+    )
+    STATE.mark_released(
+        namespace,
+        name,
+        fallback=is_fallback,
+        reason="deadline_safety_margin" if is_fallback else None,
+        at=current_time,
     )
 
     if is_fallback:
@@ -539,6 +615,7 @@ async def on_startup(**_kwargs: Any) -> None:
     await grid_client.__aenter__()
 
     scheduler.grid_client = grid_client
+    STATE.configure(mode="live", country=settings.grid_country, policy=settings.policy)
     set_ready(True)
 
     logger.info("controller_initialized")

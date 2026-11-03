@@ -41,6 +41,12 @@ spec:
               value: {{ .Values.config.policy | quote }}
             - name: CARBON_RENEWABLE_THRESHOLD_PCT
               value: {{ .Values.config.renewableThresholdPct | quote }}
+            - name: CARBON_DELAY_PENALTY_PCT_PER_HOUR
+              value: {{ .Values.config.delayPenaltyPctPerHour | quote }}
+            - name: CARBON_MAX_RELEASES_PER_MINUTE
+              value: {{ .Values.config.maxReleasesPerMinute | quote }}
+            - name: CARBON_DASHBOARD_ENABLED
+              value: {{ .Values.dashboard.enabled | quote }}
             - name: CARBON_MAX_DELAY
               value: {{ .Values.config.maxDelay | quote }}
             - name: CARBON_REPLAN_ENABLED

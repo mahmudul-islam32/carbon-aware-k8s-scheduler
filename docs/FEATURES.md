@@ -5,10 +5,10 @@
 </p>
 
 <p align="center">
-  <img alt="Done" src="https://img.shields.io/badge/done-9-16a34a?style=for-the-badge">
-  <img alt="Improved" src="https://img.shields.io/badge/improved-2-0d9488?style=for-the-badge">
-  <img alt="New" src="https://img.shields.io/badge/new-8-2563eb?style=for-the-badge">
-  <img alt="Planned" src="https://img.shields.io/badge/planned-15-d97706?style=for-the-badge">
+  <img alt="Done" src="https://img.shields.io/badge/done-17-16a34a?style=for-the-badge">
+  <img alt="Improved" src="https://img.shields.io/badge/improved-1-0d9488?style=for-the-badge">
+  <img alt="New" src="https://img.shields.io/badge/new-11-2563eb?style=for-the-badge">
+  <img alt="Planned" src="https://img.shields.io/badge/planned-9-d97706?style=for-the-badge">
 </p>
 
 This is the single source of truth for what the scheduler does today and what comes next.
@@ -20,8 +20,8 @@ can pick one, build it, tick the boxes and flip its status.
 1. [Legend](#legend)
 2. [At a glance](#at-a-glance)
 3. [How the pieces fit](#how-the-pieces-fit)
-4. [Shipped features](#shipped-features) (F-01 to F-20)
-5. [Backlog](#backlog) (F-11, F-21 to F-34)
+4. [Shipped features](#shipped-features) (F-01 to F-20, F-22, F-23, F-26, F-29, F-32, F-34 to F-38)
+5. [Backlog](#backlog) (F-11, F-21, F-24, F-25, F-27, F-28, F-30, F-31, F-33)
 6. [Working through the backlog](#working-through-the-backlog)
 
 ---
@@ -54,29 +54,33 @@ can pick one, build it, tick the boxes and flip its status.
 | [F-08](#f-08--grafana-dashboard) | Grafana dashboard | Observability | Should | ✅ Done |
 | [F-09](#f-09--backtest-and-simulation-cli) | Backtest and simulation CLI | Tooling | Should | ✅ Done |
 | [F-10](#f-10--helm-chart-and-rbac) | Helm chart and RBAC | Tooling | Should | ✅ Done |
-| [F-12](#f-12--kubernetes-events-and-audit-trail) | Kubernetes Events and audit trail | Core control loop | Could | 🔁 Improved |
-| [F-13](#f-13--health-and-readiness-probes) | Health and readiness probes | Observability | Must | 🆕 New |
-| [F-14](#f-14--per-job-policy-overrides) | Per-job policy overrides | Core control loop | Should | 🆕 New |
-| [F-15](#f-15--max-delay-cap) | Max-delay cap | Core control loop | Should | 🆕 New |
-| [F-16](#f-16--live-co2-estimate-per-job) | Live CO₂ estimate per job | Carbon accounting | Should | 🆕 New |
-| [F-17](#f-17--dry-run-planner-carbon-sim-plan) | Dry-run planner (`carbon-sim plan`) | Tooling | Should | 🆕 New |
-| [F-18](#f-18--ci-pipeline) | CI pipeline | Tooling | Should | 🆕 New |
-| [F-19](#f-19--grid-and-api-observability) | Grid and API observability | Observability | Should | 🆕 New |
+| [F-12](#f-12--kubernetes-events-and-audit-trail) | Kubernetes Events and audit trail | Core control loop | Could | ✅ Done |
+| [F-13](#f-13--health-and-readiness-probes) | Health and readiness probes | Observability | Must | ✅ Done |
+| [F-14](#f-14--per-job-policy-overrides) | Per-job policy overrides | Core control loop | Should | ✅ Done |
+| [F-15](#f-15--max-delay-cap) | Max-delay cap | Core control loop | Should | ✅ Done |
+| [F-16](#f-16--live-co2-estimate-per-job) | Live CO₂ estimate per job | Carbon accounting | Should | ✅ Done |
+| [F-17](#f-17--dry-run-planner-carbon-sim-plan) | Dry-run planner (`carbon-sim plan`) | Tooling | Should | ✅ Done |
+| [F-18](#f-18--ci-pipeline) | CI pipeline | Tooling | Should | ✅ Done |
+| [F-19](#f-19--grid-and-api-observability) | Grid and API observability | Observability | Should | ✅ Done |
 | [F-20](#f-20--re-plan-on-forecast-refresh) | Re-plan on forecast refresh | Grid data | Should | 🆕 New |
+| [F-22](#f-22--relative-deadlines-for-cronjobs) | Relative deadlines for CronJobs | Core control loop | Should | 🆕 New |
+| [F-23](#f-23--balanced-policy) | Balanced policy | Planning | Could | 🆕 New |
+| [F-26](#f-26--release-staggering) | Release staggering | Planning | Should | 🆕 New |
+| [F-29](#f-29--kubectl-carbon-plugin) | `kubectl carbon` plugin | Tooling | Could | 🆕 New |
+| [F-32](#f-32--prometheusrule-alert-pack) | PrometheusRule alert pack | Observability | Should | 🆕 New |
+| [F-34](#f-34--release-pipeline) | Release pipeline | Tooling | Should | 🆕 New |
+| [F-35](#f-35--live-web-dashboard) | Live web dashboard | Observability | Should | 🆕 New |
+| [F-36](#f-36--dashboard-demo-mode) | Dashboard demo mode | Observability | Could | 🆕 New |
+| [F-37](#f-37--html-backtest-report-and-showcase) | HTML backtest report and showcase | Tooling | Should | 🆕 New |
+| [F-38](#f-38--synthetic-grid-data) | Synthetic grid data | Grid data | Could | 🆕 New |
 | [F-21](#f-21--mutating-admission-webhook) | Mutating admission webhook | Core control loop | Should | 🗓️ Planned |
-| [F-22](#f-22--relative-deadlines-for-cronjobs) | Relative deadlines for CronJobs | Core control loop | Should | 🗓️ Planned |
-| [F-23](#f-23--lowest-carbon-policy) | Lowest-carbon policy | Planning | Could | 🗓️ Planned |
 | [F-24](#f-24--spatial-multi-region-shifting) | Spatial (multi-region) shifting | Planning | Could | 🗓️ Planned |
 | [F-25](#f-25--team-carbon-budgets) | Team carbon budgets | Carbon accounting | Could | 🗓️ Planned |
-| [F-26](#f-26--release-staggering) | Release staggering | Planning | Should | 🗓️ Planned |
 | [F-27](#f-27--high-availability-with-leader-election) | High availability with leader election | Core control loop | Should | 🗓️ Planned |
 | [F-28](#f-28--more-grid-data-providers) | More grid data providers | Grid data | Could | 🗓️ Planned |
-| [F-29](#f-29--kubectl-carbon-plugin) | `kubectl carbon` plugin | Tooling | Could | 🗓️ Planned |
 | [F-30](#f-30--runtime-learning) | Runtime learning | Planning | Could | 🗓️ Planned |
 | [F-31](#f-31--measured-energy-via-kepler) | Measured energy via Kepler | Carbon accounting | Could | 🗓️ Planned |
-| [F-32](#f-32--prometheusrule-alert-pack) | PrometheusRule alert pack | Observability | Should | 🗓️ Planned |
 | [F-33](#f-33--end-to-end-tests-on-kind) | End-to-end tests on kind | Tooling | Should | 🗓️ Planned |
-| [F-34](#f-34--release-pipeline) | Release pipeline | Tooling | Should | 🗓️ Planned |
 | [F-11](#f-11--keda-scaledjob-mode) | KEDA ScaledJob mode | Tooling | Could | 🗓️ Planned |
 
 ---
@@ -179,6 +183,7 @@ fallback-released. Every release now also writes `actual-start`, and the release
 | `immediate` | Now | Baseline for comparisons |
 | `threshold` | First slot with share ≥ X % | Simple, predictable rules |
 | `greenest-window` | Runtime-sized window with the highest mean share | Maximum savings |
+| `balanced` | Best mean share minus a per-hour delay penalty ([F-23](#f-23--balanced-policy)) | Most of the saving, much less waiting |
 
 **Acceptance criteria**
 - [x] Policies are pure functions of the forecast, the job and the current time, with unit tests.
@@ -281,7 +286,7 @@ carbon-sim backtest --data data/ --trace trace.json --policies immediate,thresho
 
 ### F-12 · Kubernetes Events and audit trail
 
-`🔁 Improved` · `Could` · `Core control loop` · [`controller/handlers.py`](../src/carbon_scheduler/controller/handlers.py)
+`✅ Done` · `Could` · `Core control loop` · [`controller/handlers.py`](../src/carbon_scheduler/controller/handlers.py)
 
 > **As a** job owner, **I want** `kubectl describe job` to explain why my job hasn't started.
 
@@ -292,7 +297,6 @@ now posted to the Kubernetes API through kopf, so they show up in `kubectl descr
 |---|---|---|
 | `JobHeld` | Normal | Job planned for later; message includes planned start, policy and est. CO₂ avoided |
 | `JobReleased` | Normal | Released on plan or immediately by policy |
-| `JobReplanned` | Normal | A newer forecast moved the planned start (F-20); message shows old → new start and share |
 | `FallbackRelease` | Warning | Released because of missing data or the deadline safety margin |
 | `ValidationError` | Warning | Invalid annotations; Job released (fail-open) |
 
@@ -305,7 +309,7 @@ now posted to the Kubernetes API through kopf, so they show up in `kubectl descr
 
 ### F-13 · Health and readiness probes
 
-`🆕 New` · `Must` · `Observability` · [`metrics/prometheus.py`](../src/carbon_scheduler/metrics/prometheus.py)
+`✅ Done` · `Must` · `Observability` · [`metrics/prometheus.py`](../src/carbon_scheduler/metrics/prometheus.py)
 
 > **As a** platform engineer, **I want** probes that reflect the controller's real state, **so that** Kubernetes restarts it when it is broken and does not mark it ready too early.
 
@@ -321,7 +325,7 @@ port, but nothing served them, so pods never became ready. The metrics server no
 
 ### F-14 · Per-job policy overrides
 
-`🆕 New` · `Should` · `Core control loop` · [`examples/per-job-overrides.yaml`](../examples/per-job-overrides.yaml)
+`✅ Done` · `Should` · `Core control loop` · [`examples/per-job-overrides.yaml`](../examples/per-job-overrides.yaml)
 
 > **As a** job owner, **I want** to choose the policy and threshold for my Job, **so that** a latency-sensitive report and a weekly model retrain can share one controller.
 
@@ -339,7 +343,7 @@ carbon-scheduler.mahmudul-islam32.github.io/renewable-threshold: "70"    # 0-100
 
 ### F-15 · Max-delay cap
 
-`🆕 New` · `Should` · `Core control loop` · [`controller/scheduler.py`](../src/carbon_scheduler/controller/scheduler.py)
+`✅ Done` · `Should` · `Core control loop` · [`controller/scheduler.py`](../src/carbon_scheduler/controller/scheduler.py)
 
 > **As a** team lead, **I want** to cap how long any Job can be held, **so that** a far-away deadline doesn't park work for days.
 
@@ -355,7 +359,7 @@ carbon-scheduler.mahmudul-islam32.github.io/renewable-threshold: "70"    # 0-100
 
 ### F-16 · Live CO2 estimate per job
 
-`🆕 New` · `Should` · `Carbon accounting` · [`carbon/live.py`](../src/carbon_scheduler/carbon/live.py)
+`✅ Done` · `Should` · `Carbon accounting` · [`carbon/live.py`](../src/carbon_scheduler/carbon/live.py)
 
 > **As a** job owner, **I want** to see how much CO₂ waiting saved, **so that** I trust that the delay is worth it.
 
@@ -378,7 +382,7 @@ CPU and GPU counts come from the pod template's requests (falling back to limits
 
 ### F-17 · Dry-run planner (`carbon-sim plan`)
 
-`🆕 New` · `Should` · `Tooling` · [`sim/plan.py`](../src/carbon_scheduler/sim/plan.py)
+`✅ Done` · `Should` · `Tooling` · [`sim/plan.py`](../src/carbon_scheduler/sim/plan.py)
 
 > **As a** job owner, **I want** to see when my Job would run before I submit it, **so that** I can pick a sensible deadline.
 
@@ -408,7 +412,7 @@ Renewable share forecast until deadline
 
 ### F-18 · CI pipeline
 
-`🆕 New` · `Should` · `Tooling` · [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
+`✅ Done` · `Should` · `Tooling` · [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
 
 > **As a** maintainer, **I want** every pull request checked automatically, **so that** regressions are caught before merge.
 
@@ -421,7 +425,7 @@ Renewable share forecast until deadline
 
 ### F-19 · Grid and API observability
 
-`🆕 New` · `Should` · `Observability` · [`metrics/prometheus.py`](../src/carbon_scheduler/metrics/prometheus.py)
+`✅ Done` · `Should` · `Observability` · [`metrics/prometheus.py`](../src/carbon_scheduler/metrics/prometheus.py)
 
 > **As an** SRE, **I want** to see whether the forecast is fresh and the API is healthy, **so that** I can tell "no green window" apart from "no data".
 
@@ -467,6 +471,240 @@ Normal  JobReplanned  Planned start moved 2026-10-29T13:00:00+00:00 → 2026-10-
 
 ---
 
+### F-22 · Relative deadlines for CronJobs
+
+`🆕 New` · `Should` · `Core control loop` · [`examples/batch-processing-cronjob.yaml`](../examples/batch-processing-cronjob.yaml)
+
+> **As a** data engineer, **I want** to write `deadline-in: "6h"` on a CronJob template, **so that** every Job it creates gets a deadline relative to its own creation time.
+
+```yaml
+carbon-scheduler.mahmudul-islam32.github.io/deadline-in: "12h"   # resolved against creationTimestamp
+```
+
+The controller resolves the relative deadline once, at planning time, and pins it by writing the
+absolute value to `.../deadline`, so every later reconcile sees the same deadline.
+
+**Acceptance criteria**
+- [x] `deadline-in` accepts the same duration format as `estimated-runtime`.
+- [x] A Job needs `deadline` or `deadline-in`. *Changed from the original spec:* when both are set the
+      absolute `deadline` wins instead of raising a `ValidationError`, because the controller itself
+      writes `deadline` after resolving `deadline-in`.
+- [x] `examples/batch-processing-cronjob.yaml` uses it.
+- [x] Unit tests for parsing, resolution against the creation time and pinning (`tests/unit/test_core_v2.py`).
+
+---
+
+### F-23 · Balanced policy
+
+`🆕 New` · `Could` · `Planning` · [`planner/policies.py`](../src/carbon_scheduler/planner/policies.py)
+
+> **As a** job owner, **I want** to trade a little CO₂ for a lot less waiting, **so that** a long deadline doesn't mean my results always arrive at the last moment.
+
+*Changed from the original spec ("lowest-carbon policy"):* the scheduler derives carbon intensity
+linearly from the renewable share, so minimising intensity picks exactly the same window as
+`greenest-window`. The `balanced` policy adds the dimension that was missing: time.
+
+```
+score(window) = mean renewable share − delay_hours × delay-penalty
+```
+
+| Setting | Where | Default |
+|---|---|---|
+| Policy name | `CARBON_POLICY=balanced` or annotation `.../policy: "balanced"` | |
+| Penalty (share points per hour) | `CARBON_DELAY_PENALTY_PCT_PER_HOUR` or annotation `.../delay-penalty` | `2` |
+
+In the 30-day [showcase](#f-37--html-backtest-report-and-showcase) backtest, `balanced` kept 90 % of
+`greenest-window`'s CO₂ saving (21.1 % vs 23.4 %) with 38 % less waiting (2.3 h vs 3.7 h mean delay).
+
+**Acceptance criteria**
+- [x] Penalty `0` gives the same window as `greenest-window`.
+- [x] Never ends after the deadline; same fallbacks as the other policies.
+- [x] Available in the controller, per-job annotations, `carbon-sim plan` and `carbon-sim backtest`.
+- [x] Unit tests (`tests/unit/test_core_v2.py`).
+
+---
+
+### F-26 · Release staggering
+
+`🆕 New` · `Should` · `Planning` · [`controller/staggering.py`](../src/carbon_scheduler/controller/staggering.py)
+
+> **As a** platform engineer, **I want** Jobs that picked the same green window to start a few at a time, **so that** the cluster autoscaler and shared databases aren't hit by a thundering herd.
+
+`CARBON_MAX_RELEASES_PER_MINUTE` (Helm `config.maxReleasesPerMinute`, `0` = off) caps planned
+releases per rolling minute. Deferred Jobs are retried on the next timer tick and counted in
+`carbon_releases_deferred_total`.
+
+**Acceptance criteria**
+- [x] Sliding-window limiter, disabled by default.
+- [x] A Job within two reconcile intervals of its latest start always bypasses the limiter, so
+      staggering can never cause a missed deadline.
+- [x] Metric for deferred releases.
+- [x] Unit tests including the timer handler (`tests/unit/test_core_v2.py`).
+
+---
+
+### F-29 · `kubectl carbon` plugin
+
+`🆕 New` · `Could` · `Tooling` · [`kubectl_plugin.py`](../src/carbon_scheduler/kubectl_plugin.py)
+
+> **As a** job owner, **I want** to see when my Job will start without reading raw annotations, **so that** I trust the scheduler.
+
+`pip install` puts a `kubectl-carbon` executable on the `PATH`, which kubectl discovers as a plugin.
+
+| Command | What it does |
+|---|---|
+| `kubectl carbon status [-n ns \| -A]` | Every flexible Job: state, policy, planned start, countdown, expected share, CO₂ avoided |
+| `kubectl carbon explain JOB` | All carbon-scheduler annotations of one Job, in decision order |
+| `kubectl carbon release JOB [--yes]` | Release a held Job now (records `fallback-reason: manual_release`) |
+| `kubectl carbon forecast [--hours 24]` | Sparkline of the live forecast and the greenest upcoming hour |
+
+**Acceptance criteria**
+- [x] Uses the current kubeconfig context (falls back to in-cluster config).
+- [x] Manual release asks for confirmation unless `--yes`.
+- [x] Unit tests with a mocked Kubernetes API (`tests/unit/test_kubectl_plugin.py`).
+
+---
+
+### F-32 · PrometheusRule alert pack
+
+`🆕 New` · `Should` · `Observability` · [`templates/prometheusrule.yaml`](../charts/carbon-scheduler/templates/prometheusrule.yaml)
+
+> **As an** SRE, **I want** ready-made alerts, **so that** I know when the scheduler silently stops saving CO₂.
+
+Enable with `--set alerts.enabled=true` (needs the Prometheus Operator CRDs).
+
+| Alert | Fires when | Runbook |
+|---|---|---|
+| `CarbonSchedulerDown` | no healthy scrape target for 5 min | Check the pod and its logs. Held Jobs stay suspended until it is back, then anything past its latest start is released immediately. |
+| `CarbonForecastStale` | `carbon_forecast_age_seconds` > `alerts.forecastStaleSeconds` (2 h) | Check egress to `api.energy-charts.info` and `carbon_api_requests_total` by status. |
+| `CarbonGridApiErrors` | > 50 % of grid API calls failing for 15 min | Usually rate limiting (429) or an outage. Jobs are released fail-open meanwhile. |
+| `CarbonHighFallbackRatio` | fallbacks / releases > `alerts.fallbackRatio` over 1 h | Look at the `fallback-reason` annotation: missing data, deadlines too tight for the runtime, or invalid annotations. |
+| `CarbonManyJobsHeld` | a namespace holds > `alerts.heldJobsHigh` Jobs | Expected before a big green window. Turn on release staggering (F-26) if the herd hurts. |
+
+**Acceptance criteria**
+- [x] Optional `PrometheusRule` template in the chart (`alerts.enabled`), thresholds in `values.yaml`.
+- [x] Alerts for stale forecast, fallback ratio and grid API errors; plus controller-down and backlog.
+- [ ] Alert for a single Job held longer than `max-delay` (needs a per-Job hold-age metric).
+- [x] A runbook line per alert (table above).
+
+---
+
+### F-34 · Release pipeline
+
+`🆕 New` · `Should` · `Tooling` · [`.github/workflows/release.yml`](../.github/workflows/release.yml) · [`release.py`](../src/carbon_scheduler/release.py)
+
+> **As a** user, **I want** a published image and chart, **so that** `helm install` works without building anything.
+
+```bash
+python -m carbon_scheduler.release bump 0.2.0     # __version__ + Chart.yaml version/appVersion
+# open a PR "chore(release): v0.2.0", merge it, then tag the merge commit:
+git tag v0.2.0 && git push origin v0.2.0
+helm install carbon-scheduler oci://ghcr.io/mahmudul-islam32/charts/carbon-scheduler --version 0.2.0
+```
+
+A `v*` tag runs four jobs: **verify** (tag = `__version__` = `Chart.yaml`, then `pytest`),
+**image** (`linux/amd64` + `linux/arm64`, tags `X.Y.Z` and `X.Y`), **chart** (`helm package` +
+`helm push` to `oci://ghcr.io/mahmudul-islam32/charts`) and **github-release** (notes grouped by
+Conventional Commit type, chart `.tgz` attached; tags with `-` become pre-releases).
+`pyproject.toml` reads the version from `__init__.py`, and CI runs `release check` on every PR.
+
+**Acceptance criteria**
+- [x] On tag `v*`: build multi-arch image, push to `ghcr.io/mahmudul-islam32/carbon-scheduler`.
+- [x] Package and publish the Helm chart (GitHub Pages or OCI on GHCR).
+- [x] `__version__`, `pyproject.toml` and `Chart.yaml` stay in sync (single source).
+- [x] GitHub Release notes generated from Conventional Commits.
+
+---
+
+### F-35 · Live web dashboard
+
+`🆕 New` · `Should` · `Observability` · [`dashboard/`](../src/carbon_scheduler/dashboard/)
+
+> **As a** sustainability lead, **I want** a page I can open without Grafana, **so that** I can see what the scheduler is doing and what it saved.
+
+The controller serves a single-page dashboard on its metrics port (`/`, JSON at `/api/state`).
+It has no external assets, so it works in air-gapped clusters.
+
+<p align="center"><img src="media/dashboard-light.png" alt="Dashboard in light mode" width="100%"></p>
+
+| Panel | Shows |
+|---|---|
+| KPI row | share now, peak ahead, held, released (+ fallbacks), CO₂ avoided (+ planned), mean delay |
+| Forecast & job plan | renewable share curve with planned windows, plus a Gantt lane per Job: wait line, run bar, deadline tick; crosshair tooltip |
+| Cumulative CO₂ avoided | step line over time |
+| Avoided by team | from the Job's `team` (or `app.kubernetes.io/part-of`, `owner`) label, falling back to namespace |
+| Greenest hours | hour-of-day × day heatmap of the forecast |
+| Jobs, Events | table with share now → window, and the same Events as `kubectl describe job` |
+
+**Acceptance criteria**
+- [x] Light and dark themes (follows the OS, toggle persisted), responsive down to phone width.
+- [x] State rebuilt from Job annotations after a controller restart.
+- [x] `CARBON_DASHBOARD_ENABLED=false` (Helm `dashboard.enabled`) turns it off; `/metrics` and probes are unaffected.
+- [x] Unit tests for the state store and HTTP routes (`tests/unit/test_dashboard.py`).
+
+---
+
+### F-36 · Dashboard demo mode
+
+`🆕 New` · `Could` · `Observability` · [`dashboard/demo.py`](../src/carbon_scheduler/dashboard/demo.py)
+
+> **As** someone evaluating the project, **I want** to see it work in one command, **so that** I don't need a cluster first.
+
+```bash
+carbon-sim dashboard                       # http://127.0.0.1:8080
+carbon-sim dashboard --start 2026-06-15T05:00:00Z --seed 3   # a sunny June day
+carbon-sim dashboard --live-forecast       # demo jobs against the real Energy-Charts forecast
+```
+
+A simulated cluster on an accelerated clock (default 1200×) submits ten realistic job types
+(ETL, training, fine-tuning, transcoding, backups…) from six teams and plans each with the **real**
+planner policies.
+
+**Acceptance criteria**
+- [x] Same state store and page as the controller, so the demo is what production looks like.
+- [x] Deterministic with `--seed`; forecast rolls forward so it can run indefinitely.
+- [x] Unit tests (`tests/unit/test_dashboard.py`).
+
+---
+
+### F-37 · HTML backtest report and showcase
+
+`🆕 New` · `Should` · `Tooling` · [`sim/report.py`](../src/carbon_scheduler/sim/report.py)
+
+> **As a** decision-maker, **I want** a shareable report that compares policies, **so that** I can pick one with evidence.
+
+```bash
+carbon-sim report results.csv --data data/ -o report.html   # from an existing backtest
+carbon-sim showcase -o showcase/                             # synth data → trace → backtest → report
+```
+
+<p align="center"><img src="media/report.png" alt="Backtest report" width="85%"></p>
+
+**Acceptance criteria**
+- [x] One self-contained HTML file (inline SVG, no external assets), light and dark.
+- [x] KPIs, grid curve, CO₂ and share per policy, savings-vs-delay trade-off, delay histograms, comparison table.
+- [x] `showcase` runs fully offline in a few seconds.
+- [x] Unit tests (`tests/unit/test_report.py`).
+
+---
+
+### F-38 · Synthetic grid data
+
+`🆕 New` · `Could` · `Grid data` · [`sim/synthetic.py`](../src/carbon_scheduler/sim/synthetic.py)
+
+> **As a** contributor, **I want** realistic grid data without network access, **so that** demos, backtests and CI work anywhere.
+
+Solar bell curve (seasonal height and day length, per-day cloudiness) + drifting wind fronts +
+base load + noise, clipped to 3–97 %. Deterministic per seed. `carbon-sim synth` writes it in the
+same layout as `carbon-sim fetch`.
+
+**Acceptance criteria**
+- [x] Deterministic for a given seed; 15-minute resolution.
+- [x] Usable by `backtest`, `report`, `showcase` and the dashboard demo.
+- [x] Unit tests (`tests/unit/test_dashboard.py`).
+
+---
+
 ## Backlog
 
 <p align="center">
@@ -482,18 +720,12 @@ quadrantChart
     quadrant-2 Quick wins
     quadrant-3 Fill-ins
     quadrant-4 Research
-    F-22 Relative deadlines: [0.18, 0.82]
-    F-32 Alerts: [0.15, 0.55]
-    F-34 Release: [0.22, 0.62]
     F-21 Webhook: [0.48, 0.70]
-    F-26 Staggering: [0.45, 0.58]
     F-27 HA: [0.52, 0.52]
     F-33 E2E: [0.50, 0.45]
-    F-23 Lowest-carbon: [0.55, 0.66]
     F-24 Spatial: [0.88, 0.86]
     F-25 Budgets: [0.82, 0.38]
     F-28 Providers: [0.70, 0.30]
-    F-29 kubectl: [0.56, 0.22]
     F-30 Runtime: [0.60, 0.42]
     F-31 Kepler: [0.85, 0.60]
     F-11 KEDA: [0.78, 0.25]
@@ -501,51 +733,7 @@ quadrantChart
 
 ### 🟢 Wave NOW
 
-#### F-22 · Relative deadlines for CronJobs
-
-`🗓️ Planned` · `Should` · Effort **S** · Impact **High**
-
-> **As a** data engineer, **I want** to write `deadline-in: "6h"` on a CronJob template, **so that** every Job it creates gets a deadline relative to its own creation time.
-
-Absolute deadlines don't work for recurring Jobs: every run would share the same timestamp.
-
-**Design sketch:** new annotation `.../deadline-in`. In `calculate_schedule`, derive
-`deadline = creationTimestamp + deadline-in` when `deadline` is absent, and write the resolved value back to `.../deadline`.
-
-**Acceptance criteria**
-- [ ] `deadline-in` accepts the same duration format as `estimated-runtime`.
-- [ ] Exactly one of `deadline` / `deadline-in` is required; both → `ValidationError`.
-- [ ] `examples/batch-processing-cronjob.yaml` uses it.
-- [ ] Unit tests for parsing and for a Job created by a CronJob.
-
-**Touches:** `config.py`, `controller/annotations.py`, `controller/scheduler.py`, `examples/`.
-
----
-
-#### F-32 · PrometheusRule alert pack
-
-`🗓️ Planned` · `Should` · Effort **S** · Impact **Medium**
-
-> **As an** SRE, **I want** ready-made alerts, **so that** I know when the scheduler silently stops saving CO₂.
-
-**Acceptance criteria**
-- [ ] Optional `PrometheusRule` template in the chart (`alerts.enabled`).
-- [ ] Alerts: forecast older than 2 h, fallback release rate > 20 % over 1 h, any Energy-Charts 5xx/429 burst, Job held longer than `max-delay`.
-- [ ] Each alert has a runbook paragraph in `docs/`.
-
----
-
-#### F-34 · Release pipeline
-
-`🗓️ Planned` · `Should` · Effort **S** · Impact **Medium**
-
-> **As a** user, **I want** a published image and chart, **so that** `helm install` works without building anything.
-
-**Acceptance criteria**
-- [ ] On tag `v*`: build multi-arch image, push to `ghcr.io/mahmudul-islam32/carbon-scheduler`.
-- [ ] Package and publish the Helm chart (GitHub Pages or OCI on GHCR).
-- [ ] `__version__`, `pyproject.toml` and `Chart.yaml` stay in sync (single source).
-- [ ] GitHub Release notes generated from Conventional Commits.
+Empty for now: every Wave NOW item has shipped. Pick the next item from Wave NEXT.
 
 ---
 
@@ -562,19 +750,6 @@ Absolute deadlines don't work for recurring Jobs: every run would share the same
 - [ ] Optional namespace-label opt-in (`carbon-scheduler/enabled=true`).
 - [ ] `failurePolicy: Ignore` so an unavailable webhook never blocks Job creation.
 - [ ] TLS via cert-manager or a self-signed bootstrap, documented in the chart.
-
----
-
-#### F-26 · Release staggering
-
-`🗓️ Planned` · `Should` · Effort **M** · Impact **Medium**
-
-> **As a** cluster operator, **I want** Jobs that share a green window to be spread out, **so that** the cluster isn't flooded at the same minute.
-
-**Acceptance criteria**
-- [ ] Setting `CARBON_MAX_RELEASES_PER_MINUTE` (and optionally per namespace).
-- [ ] Jobs over the limit slide to the next-best slot without passing `latest-start`.
-- [ ] Backtest reports peak concurrent releases per policy.
 
 ---
 
@@ -603,19 +778,6 @@ Absolute deadlines don't work for recurring Jobs: every run would share the same
 - [ ] CI job: create kind cluster, build image, `helm install`, wait for `/readyz`.
 - [ ] Apply an example Job with a mocked forecast endpoint; assert `planned-start` is written and the Job is released.
 - [ ] Assert `kubectl describe job` shows the `JobHeld` Event.
-
----
-
-#### F-23 · Lowest-carbon policy
-
-`🗓️ Planned` · `Could` · Effort **M** · Impact **Medium**
-
-> **As a** researcher, **I want** a policy that minimises estimated gCO₂/kWh instead of maximising renewable share, **so that** nuclear, imports and biomass are weighted correctly.
-
-**Acceptance criteria**
-- [ ] Intensity series from `/public_power` × emission factors (reuses `CarbonEstimator`).
-- [ ] New policy name `lowest-carbon`, selectable globally and per job.
-- [ ] Backtest comparison against `greenest-window` in the docs.
 
 ---
 
@@ -669,19 +831,6 @@ Absolute deadlines don't work for recurring Jobs: every run would share the same
 - [ ] `GridProvider` interface; Energy-Charts becomes one implementation.
 - [ ] Provider chosen by `CARBON_GRID_PROVIDER`; API keys from a Secret.
 - [ ] Automatic failover to a second provider before falling back to immediate release.
-
----
-
-#### F-29 · `kubectl carbon` plugin
-
-`🗓️ Planned` · `Could` · Effort **M** · Impact **Low**
-
-> **As a** job owner, **I want** `kubectl carbon status` to list held Jobs with planned start and savings.
-
-**Acceptance criteria**
-- [ ] Krew-installable plugin reading the annotations from F-01, F-15 and F-16.
-- [ ] `kubectl carbon plan -f job.yaml` wraps F-17.
-- [ ] `kubectl carbon release <job>` for a manual override (with an Event).
 
 ---
 

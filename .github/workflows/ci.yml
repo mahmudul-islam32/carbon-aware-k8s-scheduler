@@ -23,6 +23,9 @@ jobs:
       - name: Install
         run: pip install -e ".[dev]"
 
+      - name: Version in sync
+        run: python -m carbon_scheduler.release check
+
       - name: Ruff
         run: ruff check src tests
 
@@ -44,7 +47,7 @@ jobs:
         run: helm lint charts/carbon-scheduler
 
       - name: Render chart
-        run: helm template carbon-scheduler charts/carbon-scheduler --set metrics.serviceMonitor.enabled=true --set grafana.enabled=true > /dev/null
+        run: helm template carbon-scheduler charts/carbon-scheduler --set metrics.serviceMonitor.enabled=true --set grafana.enabled=true --set alerts.enabled=true > /dev/null
 
   docker:
     name: Docker build

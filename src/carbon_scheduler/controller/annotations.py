@@ -14,6 +14,8 @@ from typing import Any
 
 from carbon_scheduler.config import (
     ANNOTATION_DEADLINE,
+    ANNOTATION_DEADLINE_IN,
+    ANNOTATION_DELAY_PENALTY,
     ANNOTATION_ESTIMATED_RUNTIME,
     ANNOTATION_FALLBACK_REASON,
     ANNOTATION_FLEXIBLE,
@@ -26,7 +28,7 @@ from carbon_scheduler.config import (
     ANNOTATION_RENEWABLE_THRESHOLD,
 )
 
-VALID_POLICIES = ("immediate", "threshold", "greenest-window")
+VALID_POLICIES = ("immediate", "threshold", "greenest-window", "balanced")
 
 
 class AnnotationError(Exception):
@@ -52,6 +54,8 @@ class ParsedAnnotations:
     max_delay: timedelta | None = None
     latest_start: datetime | None = None
     planned_at: datetime | None = None
+    deadline_is_relative: bool = False
+    delay_penalty_override: float | None = None
 
     @property
     def estimated_runtime_seconds(self) -> float:
@@ -161,11 +165,19 @@ def is_flexible_job(annotations: dict[str, Any] | None) -> bool:
     return str(flexible_value).lower() == "true"
 
 
-def parse_annotations(annotations: dict[str, Any] | None) -> ParsedAnnotations:
+def parse_annotations(
+    annotations: dict[str, Any] | None,
+    submit_time: datetime | None = None,
+) -> ParsedAnnotations:
     """Parse and validate job annotations.
+
+    An absolute ``deadline`` wins over a relative ``deadline-in``. A relative
+    deadline is resolved against ``submit_time`` (the Job's creation time), or
+    against the current time when that is unknown.
 
     Args:
         annotations: Job metadata annotations
+        submit_time: When the Job was created, used to resolve ``deadline-in``
 
     Returns:
         ParsedAnnotations with validated values
@@ -184,9 +196,11 @@ def parse_annotations(annotations: dict[str, Any] | None) -> ParsedAnnotations:
         )
 
     deadline_str = annotations.get(ANNOTATION_DEADLINE)
-    if deadline_str is None:
+    deadline_in_str = annotations.get(ANNOTATION_DEADLINE_IN)
+    if deadline_str is None and not deadline_in_str:
         raise AnnotationError(
-            f"Missing required annotation: {ANNOTATION_DEADLINE}",
+            f"Missing required annotation: {ANNOTATION_DEADLINE} "
+            f"(or a relative {ANNOTATION_DEADLINE_IN})",
             annotation_key=ANNOTATION_DEADLINE,
         )
 
@@ -197,7 +211,12 @@ def parse_annotations(annotations: dict[str, Any] | None) -> ParsedAnnotations:
             annotation_key=ANNOTATION_ESTIMATED_RUNTIME,
         )
 
-    deadline = parse_iso8601_datetime(str(deadline_str))
+    deadline_is_relative = deadline_str is None
+    if deadline_str is not None:
+        deadline = parse_iso8601_datetime(str(deadline_str))
+    else:
+        base = submit_time or datetime.now(UTC)
+        deadline = base + parse_duration(str(deadline_in_str), annotation_key=ANNOTATION_DEADLINE_IN)
     estimated_runtime = parse_duration(str(runtime_str))
 
     planned_start: datetime | None = None
@@ -252,6 +271,22 @@ def parse_annotations(annotations: dict[str, Any] | None) -> ParsedAnnotations:
     if max_delay_str:
         max_delay = parse_duration(str(max_delay_str), annotation_key=ANNOTATION_MAX_DELAY)
 
+    delay_penalty: float | None = None
+    penalty_str = annotations.get(ANNOTATION_DELAY_PENALTY)
+    if penalty_str is not None and str(penalty_str).strip():
+        try:
+            delay_penalty = float(str(penalty_str).strip())
+        except ValueError as e:
+            raise AnnotationError(
+                f"Cannot parse delay penalty '{penalty_str}'. Expected a number >= 0",
+                annotation_key=ANNOTATION_DELAY_PENALTY,
+            ) from e
+        if delay_penalty < 0:
+            raise AnnotationError(
+                f"Delay penalty must be >= 0, got {delay_penalty}",
+                annotation_key=ANNOTATION_DELAY_PENALTY,
+            )
+
     return ParsedAnnotations(
         flexible=True,
         deadline=deadline,
@@ -264,6 +299,8 @@ def parse_annotations(annotations: dict[str, Any] | None) -> ParsedAnnotations:
         max_delay=max_delay,
         latest_start=latest_start,
         planned_at=planned_at,
+        deadline_is_relative=deadline_is_relative,
+        delay_penalty_override=delay_penalty,
     )
 
 
