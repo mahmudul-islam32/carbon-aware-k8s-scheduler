@@ -112,6 +112,22 @@ class Settings(BaseSettings):
         description="Prometheus metrics port",
     )
 
+    # Mutating admission webhook (F-21)
+    webhook_enabled: bool = Field(
+        default=False,
+        description="Serve the mutating admission webhook that suspends flexible Jobs",
+    )
+    webhook_port: int = Field(
+        default=8443,
+        ge=1,
+        le=65535,
+        description="HTTPS port of the admission webhook server",
+    )
+    webhook_cert_dir: Path = Field(
+        default=Path("/certs"),
+        description="Directory holding the webhook serving certificate (tls.crt, tls.key)",
+    )
+
     # Controller settings
     reconcile_interval_seconds: int = Field(
         default=60,

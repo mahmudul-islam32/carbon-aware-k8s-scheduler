@@ -36,6 +36,11 @@ spec:
             - name: {{ include "carbon-scheduler.metricsPortName" . }}
               containerPort: {{ .Values.metrics.port }}
               protocol: TCP
+            {{- if .Values.webhook.enabled }}
+            - name: webhook
+              containerPort: {{ .Values.webhook.port }}
+              protocol: TCP
+            {{- end }}
           env:
             - name: CARBON_POLICY
               value: {{ .Values.config.policy | quote }}
@@ -79,6 +84,14 @@ spec:
               value: {{ .Values.metrics.port | quote }}
             - name: CARBON_EMISSION_FACTORS_FILE
               value: /config/emission_factors.yaml
+            - name: CARBON_WEBHOOK_ENABLED
+              value: {{ .Values.webhook.enabled | quote }}
+            {{- if .Values.webhook.enabled }}
+            - name: CARBON_WEBHOOK_PORT
+              value: {{ .Values.webhook.port | quote }}
+            - name: CARBON_WEBHOOK_CERT_DIR
+              value: /certs
+            {{- end }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -100,6 +113,11 @@ spec:
             - name: config
               mountPath: /config
               readOnly: true
+            {{- if .Values.webhook.enabled }}
+            - name: webhook-tls
+              mountPath: /certs
+              readOnly: true
+            {{- end }}
             {{- with .Values.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -107,6 +125,11 @@ spec:
         - name: config
           configMap:
             name: {{ include "carbon-scheduler.fullname" . }}-config
+        {{- if .Values.webhook.enabled }}
+        - name: webhook-tls
+          secret:
+            secretName: {{ include "carbon-scheduler.webhookSecretName" . }}
+        {{- end }}
         {{- with .Values.extraVolumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}

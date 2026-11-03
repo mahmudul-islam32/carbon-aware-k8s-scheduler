@@ -1,0 +1,27 @@
+# Flexible Job without `suspend: true` (F-21).
+# Needs the chart's admission webhook: helm install ... --set webhook.enabled=true
+# The webhook sets spec.suspend=true at creation, so the controller can hold the Job.
+# With webhook.namespaceOptIn=true, label the namespace first:
+#   kubectl label namespace default carbon-scheduler/enabled=true
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: webhook-suspended-report
+  labels:
+    team: analytics
+  annotations:
+    carbon-scheduler.mahmudul-islam32.github.io/flexible: "true"
+    carbon-scheduler.mahmudul-islam32.github.io/deadline-in: "8h"
+    carbon-scheduler.mahmudul-islam32.github.io/estimated-runtime: "30m"
+spec:
+  # no `suspend: true` needed: the webhook adds it
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: report
+          image: busybox:1.36
+          command: ["sh", "-c", "echo building report && sleep 30"]
+          resources:
+            requests:
+              cpu: "1"

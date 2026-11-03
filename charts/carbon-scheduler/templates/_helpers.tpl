@@ -75,3 +75,14 @@ Create the metrics port name
 {{- define "carbon-scheduler.metricsPortName" -}}
 metrics
 {{- end }}
+
+{{/*
+Webhook service and TLS secret names (F-21)
+*/}}
+{{- define "carbon-scheduler.webhookServiceName" -}}
+{{- printf "%s-webhook" (include "carbon-scheduler.fullname" .) | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{- define "carbon-scheduler.webhookSecretName" -}}
+{{- printf "%s-webhook-tls" (include "carbon-scheduler.fullname" .) | trunc 63 | trimSuffix "-" }}
+{{- end }}
