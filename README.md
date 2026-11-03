@@ -9,7 +9,7 @@
   <img alt="python" src="https://img.shields.io/badge/python-3.12%2B-informational">
   <img alt="kubernetes" src="https://img.shields.io/badge/kubernetes-1.29%2B-326ce5">
   <img alt="tests" src="https://img.shields.io/badge/tests-345%20passing-16a34a">
-  <img alt="features" src="https://img.shields.io/badge/features-27%20shipped%20%C2%B7%2011%20planned-16a34a">
+  <img alt="features" src="https://img.shields.io/badge/features-28%20shipped%20%C2%B7%2010%20planned-16a34a">
 </p>
 
 <p align="center">
@@ -101,6 +101,7 @@ The new `balanced` policy keeps 90 % of the maximum saving with 38 % less waitin
 | 🧪 | **Backtesting** on real or synthetic history, with a **self-contained HTML report** | ✅ 🆕 |
 | 🔮 | **`carbon-sim plan`:** dry-run a Job against the live forecast | ✅ |
 | 📦 | **Helm chart** with least-privilege RBAC, ServiceMonitor, alerts and Grafana dashboard | ✅ |
+| 🚀 | **Release pipeline:** a `v*` tag publishes a multi-arch image and an OCI Helm chart on GHCR | 🆕 |
 | 🗺️ | Re-planning, admission webhook, HA, team budgets, KEDA mode and more | [Roadmap](docs/FEATURES.md#backlog) |
 
 👉 Each feature has a user story, acceptance criteria and tests in **[docs/FEATURES.md](docs/FEATURES.md)**.
@@ -144,6 +145,12 @@ The new `balanced` policy keeps 90 % of the maximum saving with 38 % less waitin
 
 ```bash
 make kind-demo
+```
+
+Or install a published release (multi-arch image and chart on GHCR):
+
+```bash
+helm install carbon-scheduler oci://ghcr.io/mahmudul-islam32/charts/carbon-scheduler --version <version>
 ```
 
 Or step by step:
@@ -295,7 +302,23 @@ make demo        # dashboard on a simulated cluster
 make media       # regenerate the screenshots, GIF and video in docs/media
 ```
 
-CI runs the same checks plus `helm lint`, `helm template` (with alerts, ServiceMonitor and Grafana enabled) and a Docker build on every pull request.
+CI runs the same checks plus a version-sync check, `helm lint`, `helm template` (with alerts, ServiceMonitor and Grafana enabled) and a Docker build on every pull request.
+
+### Releasing
+
+`carbon_scheduler.__version__` is the single source of the version; `pyproject.toml` reads it and
+`Chart.yaml` is kept equal to it.
+
+```bash
+python -m carbon_scheduler.release bump 0.2.0   # updates __init__.py and Chart.yaml
+python -m carbon_scheduler.release check        # fails on drift (also runs in CI)
+# merge the bump, then:
+git tag v0.2.0 && git push origin v0.2.0
+```
+
+The tag runs [`release.yml`](.github/workflows/release.yml): it pushes `ghcr.io/mahmudul-islam32/carbon-scheduler:0.2.0`
+(`linux/amd64`, `linux/arm64`), pushes the chart to `oci://ghcr.io/mahmudul-islam32/charts`, and creates a
+GitHub Release with notes generated from Conventional Commits.
 
 ## Data attribution
 
