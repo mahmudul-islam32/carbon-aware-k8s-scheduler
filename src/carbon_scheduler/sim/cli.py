@@ -644,6 +644,49 @@ def dashboard_command(
         server.shutdown()
 
 
+@main.command("mock-api")
+@click.option("--port", default=8080, show_default=True, help="Port to serve on")
+@click.option("--host", default="0.0.0.0", show_default=True, help="Address to bind")  # noqa: S104
+@click.option("--green-after", default=90.0, show_default=True,
+              help="Seconds after the first forecast request when the grid turns green")
+@click.option("--low-share", default=20.0, show_default=True,
+              help="Renewable share (%) before the green start")
+@click.option("--high-share", default=90.0, show_default=True,
+              help="Renewable share (%) from the green start onwards")
+@click.option("--step", default=60, show_default=True, help="Data point spacing (seconds)")
+@click.option("--substitute", is_flag=True, help="Flag the data as substitute (degraded)")
+def mock_api_command(
+    port: int,
+    host: str,
+    green_after: float,
+    low_share: float,
+    high_share: float,
+    step: int,
+    substitute: bool,
+) -> None:
+    """Serve a deterministic mock of the Energy-Charts API (used by the kind E2E test)."""
+    from carbon_scheduler.sim.mock_api import MockEnergyChartsServer, MockProfile
+
+    profile = MockProfile(
+        green_after=green_after,
+        low_share=low_share,
+        high_share=high_share,
+        step=step,
+        substitute=substitute,
+    )
+    server = MockEnergyChartsServer(profile, host=host, port=port)
+    console.print(
+        f"[bold green]Mock Energy-Charts API:[/bold green] {server.url} "
+        f"[dim](green {green_after:.0f}s after the first forecast request)[/dim]"
+    )
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.stop()
+
+
 async def _fetch_live_forecast(country: str) -> Forecast:
     """Fetch the current renewable share forecast from Energy-Charts."""
     from carbon_scheduler.grid import EnergyChartsClient

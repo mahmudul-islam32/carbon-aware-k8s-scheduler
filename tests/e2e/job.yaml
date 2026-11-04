@@ -1,0 +1,26 @@
+# Flexible Job used by the kind E2E test (F-33). The mock forecast turns green
+# 90 s after the controller first asks for it, so the controller must hold this
+# Job (JobHeld, planned-start) and then release it (JobReleased).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: e2e-flexible
+  namespace: e2e
+  annotations:
+    carbon-scheduler.mahmudul-islam32.github.io/flexible: "true"
+    carbon-scheduler.mahmudul-islam32.github.io/deadline-in: "2h"
+    carbon-scheduler.mahmudul-islam32.github.io/estimated-runtime: "5m"
+spec:
+  suspend: true
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: work
+          image: busybox:1.36
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c", "echo carbon-aware hello && sleep 2"]
+          resources:
+            requests:
+              cpu: 50m

@@ -102,6 +102,7 @@ The new `balanced` policy keeps 90 % of the maximum saving with 38 % less waitin
 | 🧪 | **Backtesting** on real or synthetic history, with a **self-contained HTML report** | ✅ 🆕 |
 | 🔮 | **`carbon-sim plan`:** dry-run a Job against the live forecast | ✅ |
 | 📦 | **Helm chart** with least-privilege RBAC, ServiceMonitor, alerts and Grafana dashboard | ✅ |
+| 🧫 | **End-to-end tests on kind** in CI: real cluster, real RBAC, probes and patches against a mock forecast | 🆕 |
 | 🚀 | **Release pipeline:** a `v*` tag publishes a multi-arch image and an OCI Helm chart on GHCR | 🆕 |
 | 🗺️ | Admission webhook, HA, team budgets, KEDA mode and more | [Roadmap](docs/FEATURES.md#backlog) |
 
@@ -293,6 +294,7 @@ Alerts: `--set alerts.enabled=true` installs a [PrometheusRule](charts/carbon-sc
 | `carbon-sim dashboard [--start ISO] [--live-forecast]` | Dashboard on a simulated cluster |
 | `carbon-sim showcase` | Synthetic data → trace → backtest → HTML report, offline |
 | `carbon-sim plan --runtime 2h --within 12h` | Dry-run one Job against the live forecast |
+| `carbon-sim mock-api [--green-after 90]` | Deterministic mock of the Energy-Charts API (used by the kind E2E test) |
 | `carbon-sim fetch` / `synth` | Real Energy-Charts history, or synthetic history |
 | `carbon-sim generate-trace` / `backtest` / `summary` / `report` | Build a job trace, compare policies, print or render results |
 | `kubectl carbon status \| explain \| release \| forecast` | Inspect and steer Jobs in the cluster |
@@ -301,12 +303,13 @@ Alerts: `--set alerts.enabled=true` installs a [PrometheusRule](charts/carbon-sc
 
 ```bash
 make install     # pip install -e ".[dev]"
-make check       # ruff + mypy --strict + pytest (345 tests)
+make check       # ruff + mypy --strict + pytest (394 tests)
+make e2e         # end-to-end on a throwaway kind cluster (Docker, kind, kubectl, Helm)
 make demo        # dashboard on a simulated cluster
 make media       # regenerate the screenshots, GIF and video in docs/media
 ```
 
-CI runs the same checks plus a version-sync check, `helm lint`, `helm template` (with alerts, ServiceMonitor and Grafana enabled) and a Docker build on every pull request.
+CI runs the same checks plus a version-sync check, `helm lint`, `helm template` (with alerts, ServiceMonitor and Grafana enabled) and a Docker build on every pull request. An **end-to-end job on kind** then installs the chart against a mock Energy-Charts API (`carbon-sim mock-api`) and asserts that a flexible Job is held (`planned-start`, `JobHeld` Event) and then released (`JobReleased`).
 
 ### Releasing
 
