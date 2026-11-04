@@ -7,8 +7,8 @@
 <p align="center">
   <img alt="Done" src="https://img.shields.io/badge/done-17-16a34a?style=for-the-badge">
   <img alt="Improved" src="https://img.shields.io/badge/improved-1-0d9488?style=for-the-badge">
-  <img alt="New" src="https://img.shields.io/badge/new-11-2563eb?style=for-the-badge">
-  <img alt="Planned" src="https://img.shields.io/badge/planned-9-d97706?style=for-the-badge">
+  <img alt="New" src="https://img.shields.io/badge/new-12-2563eb?style=for-the-badge">
+  <img alt="Planned" src="https://img.shields.io/badge/planned-8-d97706?style=for-the-badge">
 </p>
 
 This is the single source of truth for what the scheduler does today and what comes next.
@@ -21,7 +21,7 @@ can pick one, build it, tick the boxes and flip its status.
 2. [At a glance](#at-a-glance)
 3. [How the pieces fit](#how-the-pieces-fit)
 4. [Shipped features](#shipped-features) (F-01 to F-20, F-22, F-23, F-26, F-29, F-32, F-34 to F-38)
-5. [Backlog](#backlog) (F-11, F-21, F-24, F-25, F-27, F-28, F-30, F-31, F-33)
+5. [Backlog](#backlog) (F-21, F-24, F-25, F-27, F-28, F-30, F-31, F-33)
 6. [Working through the backlog](#working-through-the-backlog)
 
 ---
@@ -54,6 +54,7 @@ can pick one, build it, tick the boxes and flip its status.
 | [F-08](#f-08--grafana-dashboard) | Grafana dashboard | Observability | Should | ✅ Done |
 | [F-09](#f-09--backtest-and-simulation-cli) | Backtest and simulation CLI | Tooling | Should | ✅ Done |
 | [F-10](#f-10--helm-chart-and-rbac) | Helm chart and RBAC | Tooling | Should | ✅ Done |
+| [F-11](#f-11--keda-scaledjob-mode) | KEDA ScaledJob mode | Tooling | Could | 🆕 New |
 | [F-12](#f-12--kubernetes-events-and-audit-trail) | Kubernetes Events and audit trail | Core control loop | Could | ✅ Done |
 | [F-13](#f-13--health-and-readiness-probes) | Health and readiness probes | Observability | Must | ✅ Done |
 | [F-14](#f-14--per-job-policy-overrides) | Per-job policy overrides | Core control loop | Should | ✅ Done |
@@ -81,7 +82,6 @@ can pick one, build it, tick the boxes and flip its status.
 | [F-30](#f-30--runtime-learning) | Runtime learning | Planning | Could | 🗓️ Planned |
 | [F-31](#f-31--measured-energy-via-kepler) | Measured energy via Kepler | Carbon accounting | Could | 🗓️ Planned |
 | [F-33](#f-33--end-to-end-tests-on-kind) | End-to-end tests on kind | Tooling | Should | 🗓️ Planned |
-| [F-11](#f-11--keda-scaledjob-mode) | KEDA ScaledJob mode | Tooling | Could | 🗓️ Planned |
 
 ---
 
@@ -233,6 +233,7 @@ Carbon intensity (gCO₂/kWh) = Σ(Pᵢ · EFᵢ) / Σ Pᵢ over production type
 | `carbon_job_delay_seconds` | Histogram | Submission → release delay |
 | `carbon_co2_avoided_grams_total` | Counter | Estimated CO₂ avoided by on-plan releases |
 | `carbon_grid_renewable_share_percent` | Gauge | Current forecast renewable share |
+| `carbon_keda_allowed_concurrency` | Gauge | Allowed concurrency last served to KEDA ([F-11](#f-11--keda-scaledjob-mode)) |
 | `fallback_releases_total` | Counter | Fail-open releases |
 
 **Acceptance criteria**
@@ -281,6 +282,41 @@ carbon-sim backtest --data data/ --trace trace.json --policies immediate,thresho
 - [x] Deployment, ServiceAccount, least-privilege RBAC (Jobs: get/list/watch/patch, Events: create/patch), optional ServiceMonitor and Grafana dashboard.
 - [x] `helm lint` and `helm template` run in CI ([F-18](#f-18--ci-pipeline)).
 - [ ] The chart installs on kind in CI → tracked by [F-33](#f-33--end-to-end-tests-on-kind).
+
+---
+
+### F-11 · KEDA ScaledJob mode
+
+`🆕 New` · `Could` · `Tooling` · [`keda/scaler.py`](../src/carbon_scheduler/keda/scaler.py) · [`examples/keda-scaledjob.yaml`](../examples/keda-scaledjob.yaml)
+
+> **As a** team already using KEDA, **I want** a queue-driven variant.
+
+With `keda.enabled=true` (`CARBON_KEDA_ENABLED`) the controller serves
+`GET /keda/allowed-concurrency` on the metrics port for KEDA's `metrics-api` scaler and keeps the
+forecast fresh in the background, even when no Jobs are held:
+
+```json
+{"allowedConcurrency": 5, "renewableSharePct": 60.0, "level": "partial", "fallbackReason": null,
+ "minConcurrency": 0, "maxConcurrency": 10, "lowSharePct": 40.0, "highSharePct": 80.0, ...}
+```
+
+| Renewable share now | `allowedConcurrency` |
+|---|---|
+| ≤ `lowSharePct` (40 %) | `minConcurrency` (0) |
+| between | linear, rounded down |
+| ≥ `highSharePct` (80 %) | `maxConcurrency` (10) |
+| no data, `substitute` data, or forecast older than 2 × refresh | `maxConcurrency` (fail-open) |
+
+A `ScaledJob` pairs this trigger with its queue trigger and `multipleScalersCalculation: min`, so
+KEDA starts `min(queue length, allowed concurrency)` Jobs. `?min=` / `?max=` override the band for
+one ScaledJob. The last value served is exported as `carbon_keda_allowed_concurrency`.
+Unit tests: `tests/unit/test_keda.py`.
+
+**Acceptance criteria**
+- [x] Controller endpoint returns "allowed concurrency" based on grid greenness for the KEDA Metrics API scaler.
+- [ ] A documented example works on kind with KEDA installed. *(Example and steps are in
+  [`examples/keda-scaledjob.yaml`](../examples/keda-scaledjob.yaml); a kind run with KEDA has not been
+  done yet.)*
 
 ---
 
@@ -728,7 +764,6 @@ quadrantChart
     F-28 Providers: [0.70, 0.30]
     F-30 Runtime: [0.60, 0.42]
     F-31 Kepler: [0.85, 0.60]
-    F-11 KEDA: [0.78, 0.25]
 ```
 
 ### 🟢 Wave NOW
@@ -782,18 +817,6 @@ Empty for now: every Wave NOW item has shipped. Pick the next item from Wave NEX
 ---
 
 ### 🟣 Wave LATER
-
-#### F-11 · KEDA ScaledJob mode
-
-`🗓️ Planned` · `Could` · Effort **L** · Impact **Low**
-
-> **As a** team already using KEDA, **I want** a queue-driven variant.
-
-**Acceptance criteria**
-- [ ] Controller endpoint returns "allowed concurrency" based on grid greenness for the KEDA Metrics API scaler.
-- [ ] A documented example works on kind with KEDA installed.
-
----
 
 #### F-24 · Spatial (multi-region) shifting
 

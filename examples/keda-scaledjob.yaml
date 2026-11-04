@@ -1,0 +1,64 @@
+# KEDA ScaledJob mode (F-11): drain a work queue fast when the grid is green.
+#
+# Prerequisites
+#   1. KEDA 2.x installed:
+#        helm repo add kedacore https://kedacore.github.io/charts
+#        helm install keda kedacore/keda --namespace keda --create-namespace
+#   2. The carbon scheduler installed with KEDA mode on:
+#        helm upgrade --install carbon-scheduler charts/carbon-scheduler \
+#          --namespace carbon-system --create-namespace --set keda.enabled=true
+#   3. Check the signal:
+#        kubectl -n carbon-system port-forward svc/carbon-scheduler-metrics 9090 &
+#        curl -s localhost:9090/keda/allowed-concurrency
+#        # {"allowedConcurrency": 6, "renewableSharePct": 64.2, "level": "partial", ...}
+#
+# How it works
+#   KEDA evaluates both triggers and, with multipleScalersCalculation "min",
+#   starts min(queue length, allowed concurrency) Jobs. allowedConcurrency is
+#   minConcurrency at <= lowSharePct renewables, maxConcurrency at >= highSharePct,
+#   linear in between, and maxConcurrency when grid data is missing (fail-open).
+#   `?max=` / `?min=` on the URL override the controller-wide band for one ScaledJob.
+#
+# Jobs created by this ScaledJob are not annotated `flexible`, so the controller
+# does not hold them: KEDA decides *how many* run, the grid decides *when*.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledJob
+metadata:
+  name: green-queue-worker
+  namespace: data
+spec:
+  pollingInterval: 60
+  maxReplicaCount: 20
+  successfulJobsHistoryLimit: 5
+  failedJobsHistoryLimit: 5
+  scalingStrategy:
+    strategy: default
+    multipleScalersCalculation: min
+  jobTargetRef:
+    backoffLimit: 2
+    template:
+      spec:
+        restartPolicy: Never
+        containers:
+          - name: worker
+            image: busybox:1.36
+            command: ["sh", "-c", "echo processing one work item && sleep 30"]
+            resources:
+              requests:
+                cpu: 500m
+  triggers:
+    # 1. Carbon signal from the scheduler: how many Jobs may run right now.
+    - type: metrics-api
+      name: carbon-allowed-concurrency
+      metadata:
+        url: "http://carbon-scheduler-metrics.carbon-system.svc.cluster.local:9090/keda/allowed-concurrency?max=20"
+        valueLocation: allowedConcurrency
+        targetValue: "1"
+        format: json
+    # 2. The real work queue. Swap in your own scaler (rabbitmq, aws-sqs-queue, kafka, ...).
+    - type: redis
+      name: work-queue
+      metadata:
+        address: redis.data.svc.cluster.local:6379
+        listName: work-items
+        listLength: "1"

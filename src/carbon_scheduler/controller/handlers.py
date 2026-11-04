@@ -7,6 +7,8 @@ This module implements the Kubernetes controller using kopf:
 - F-20: Re-plan held jobs when the forecast is refreshed
 """
 
+import asyncio
+import contextlib
 import dataclasses
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -32,6 +34,8 @@ from carbon_scheduler.controller.staggering import ReleaseLimiter, is_deadline_c
 from carbon_scheduler.dashboard.records import record_from_annotations
 from carbon_scheduler.dashboard.state import STATE
 from carbon_scheduler.grid import EnergyChartsClient
+from carbon_scheduler.keda import SOURCE as KEDA_SOURCE
+from carbon_scheduler.keda import ConcurrencyBand, refresh_loop
 from carbon_scheduler.metrics.prometheus import (
     record_co2_avoided,
     record_fallback_release,
@@ -47,6 +51,7 @@ logger = structlog.get_logger(__name__)
 _scheduler: JobScheduler | None = None
 _settings: Settings | None = None
 _limiter: ReleaseLimiter | None = None
+_keda_task: asyncio.Task[None] | None = None
 
 # Read once at import: kopf needs the timer interval when the handler is registered.
 RELEASE_TIMER_INTERVAL = float(get_settings().reconcile_interval_seconds)
@@ -616,9 +621,47 @@ async def on_startup(**_kwargs: Any) -> None:
 
     scheduler.grid_client = grid_client
     STATE.configure(mode="live", country=settings.grid_country, policy=settings.policy)
+    start_keda_refresher(scheduler, settings)
     set_ready(True)
 
     logger.info("controller_initialized")
+
+
+def start_keda_refresher(scheduler: JobScheduler, settings: Settings) -> asyncio.Task[None] | None:
+    """Start the KEDA greenness refresher when KEDA mode is on (F-11).
+
+    Without held Jobs nothing else fetches the forecast, so this loop keeps it
+    fresh for ``/keda/allowed-concurrency``. The client's cache bounds API calls
+    to one per ``forecast_refresh_minutes``.
+    """
+    global _keda_task
+    if not settings.keda_enabled:
+        return None
+    refresh = timedelta(minutes=settings.forecast_refresh_minutes)
+    KEDA_SOURCE.configure(ConcurrencyBand.from_settings(settings), max_age=refresh * 2)
+    _keda_task = asyncio.create_task(
+        refresh_loop(scheduler, float(settings.reconcile_interval_seconds)),
+        name="keda-greenness-refresher",
+    )
+    logger.info(
+        "keda_mode_enabled",
+        min_concurrency=settings.keda_min_concurrency,
+        max_concurrency=settings.keda_max_concurrency,
+        low_share_pct=settings.keda_low_share_pct,
+        high_share_pct=settings.keda_high_share_pct,
+    )
+    return _keda_task
+
+
+async def stop_keda_refresher() -> None:
+    """Cancel the KEDA refresher if it runs."""
+    global _keda_task
+    if _keda_task is None:
+        return
+    _keda_task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await _keda_task
+    _keda_task = None
 
 
 @kopf.on.cleanup()
@@ -627,6 +670,7 @@ async def on_cleanup(**_kwargs: Any) -> None:
     global _scheduler
 
     set_ready(False)
+    await stop_keda_refresher()
 
     if _scheduler and _scheduler.grid_client:
         logger.info("closing_grid_client")

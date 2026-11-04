@@ -112,6 +112,19 @@ metrics:
 dashboard:
   enabled: true
 
+# KEDA ScaledJob mode (F-11): serve /keda/allowed-concurrency on the metrics port.
+# Point a KEDA `metrics-api` trigger at
+#   http://<fullname>-metrics.<namespace>.svc:9090/keda/allowed-concurrency
+# with valueLocation "allowedConcurrency". See examples/keda-scaledjob.yaml.
+keda:
+  enabled: false
+  # Jobs allowed when the renewable share is at or below lowSharePct
+  minConcurrency: 0
+  # Jobs allowed at or above highSharePct, and when grid data is missing or stale (fail-open)
+  maxConcurrency: 10
+  lowSharePct: 40
+  highSharePct: 80
+
 # PrometheusRule alert pack (needs the Prometheus Operator CRDs)
 alerts:
   enabled: false

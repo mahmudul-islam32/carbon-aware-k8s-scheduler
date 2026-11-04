@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -73,6 +73,45 @@ class Settings(BaseSettings):
         description="Hysteresis: move a plan only if the new window is greener by more "
         "than this many percentage points",
     )
+
+    # KEDA ScaledJob mode (F-11)
+    keda_enabled: bool = Field(
+        default=False,
+        description="Serve /keda/allowed-concurrency for the KEDA metrics-api scaler and keep "
+        "the forecast fresh even when no Jobs are held",
+    )
+    keda_min_concurrency: int = Field(
+        default=0,
+        ge=0,
+        description="KEDA mode: allowed concurrency at or below keda_low_share_pct",
+    )
+    keda_max_concurrency: int = Field(
+        default=10,
+        ge=0,
+        description="KEDA mode: allowed concurrency at or above keda_high_share_pct, and the "
+        "fail-open value when grid data is missing, degraded or stale",
+    )
+    keda_low_share_pct: float = Field(
+        default=40.0,
+        ge=0,
+        le=100,
+        description="KEDA mode: renewable share (%) at or below which only the minimum runs",
+    )
+    keda_high_share_pct: float = Field(
+        default=80.0,
+        ge=0,
+        le=100,
+        description="KEDA mode: renewable share (%) at or above which the maximum runs",
+    )
+
+    @model_validator(mode="after")
+    def _check_keda_bounds(self) -> "Settings":
+        """Reject inverted KEDA ranges early, at start-up."""
+        if self.keda_min_concurrency > self.keda_max_concurrency:
+            raise ValueError("keda_min_concurrency must be <= keda_max_concurrency")
+        if self.keda_low_share_pct >= self.keda_high_share_pct:
+            raise ValueError("keda_low_share_pct must be < keda_high_share_pct")
+        return self
 
     # Live CO2 accounting
     fossil_intensity_gco2_kwh: float = Field(
