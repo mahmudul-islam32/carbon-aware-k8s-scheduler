@@ -63,3 +63,21 @@ jobs:
           context: .
           push: false
           tags: carbon-scheduler:ci
+
+  e2e:
+    name: End-to-end on kind
+    needs: [lint-and-test, helm]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install kind and kubectl
+        uses: helm/kind-action@v1
+        with:
+          install_only: true
+
+      - uses: azure/setup-helm@v4
+
+      - name: Build, install and assert hold + release
+        run: ./scripts/e2e-kind.sh

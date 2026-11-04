@@ -97,7 +97,7 @@ LANES = [
         ("F-09", "Backtest CLI", "done"), ("F-10", "Helm chart & RBAC", "done"),
         ("F-17", "Dry-run planner", "done"), ("F-18", "CI pipeline", "done"),
         ("F-29", "kubectl plugin", "new"), ("F-37", "HTML report & showcase", "new"),
-        ("F-33", "E2E tests on kind", "planned"), ("F-34", "Release pipeline", "new"),
+        ("F-33", "E2E tests on kind", "new"), ("F-34", "Release pipeline", "new"),
         ("F-11", "KEDA mode", "planned")]),
 ]
 def feature_map():
@@ -145,7 +145,6 @@ def feature_map():
 # ---------------------------------------------------------------- roadmap
 WAVES = [
     ("NOW", "Small, high impact · next 1–2 weeks", "#16a34a", [
-        ("F-33", "E2E tests on kind in CI", "M"),
         ("F-21", "Mutating webhook", "M")]),
     ("NEXT", "Hardening & scale · next month", "#2563eb", [
         ("F-27", "HA with leader election", "M"), ("F-25", "Team carbon budgets", "M"),

@@ -7,8 +7,8 @@
 <p align="center">
   <img alt="Done" src="https://img.shields.io/badge/done-17-16a34a?style=for-the-badge">
   <img alt="Improved" src="https://img.shields.io/badge/improved-1-0d9488?style=for-the-badge">
-  <img alt="New" src="https://img.shields.io/badge/new-11-2563eb?style=for-the-badge">
-  <img alt="Planned" src="https://img.shields.io/badge/planned-9-d97706?style=for-the-badge">
+  <img alt="New" src="https://img.shields.io/badge/new-12-2563eb?style=for-the-badge">
+  <img alt="Planned" src="https://img.shields.io/badge/planned-8-d97706?style=for-the-badge">
 </p>
 
 This is the single source of truth for what the scheduler does today and what comes next.
@@ -20,8 +20,8 @@ can pick one, build it, tick the boxes and flip its status.
 1. [Legend](#legend)
 2. [At a glance](#at-a-glance)
 3. [How the pieces fit](#how-the-pieces-fit)
-4. [Shipped features](#shipped-features) (F-01 to F-20, F-22, F-23, F-26, F-29, F-32, F-34 to F-38)
-5. [Backlog](#backlog) (F-11, F-21, F-24, F-25, F-27, F-28, F-30, F-31, F-33)
+4. [Shipped features](#shipped-features) (F-01 to F-20, F-22, F-23, F-26, F-29, F-32 to F-38)
+5. [Backlog](#backlog) (F-11, F-21, F-24, F-25, F-27, F-28, F-30, F-31)
 6. [Working through the backlog](#working-through-the-backlog)
 
 ---
@@ -68,6 +68,7 @@ can pick one, build it, tick the boxes and flip its status.
 | [F-26](#f-26--release-staggering) | Release staggering | Planning | Should | 🆕 New |
 | [F-29](#f-29--kubectl-carbon-plugin) | `kubectl carbon` plugin | Tooling | Could | 🆕 New |
 | [F-32](#f-32--prometheusrule-alert-pack) | PrometheusRule alert pack | Observability | Should | 🆕 New |
+| [F-33](#f-33--end-to-end-tests-on-kind) | End-to-end tests on kind | Tooling | Should | 🆕 New |
 | [F-34](#f-34--release-pipeline) | Release pipeline | Tooling | Should | 🆕 New |
 | [F-35](#f-35--live-web-dashboard) | Live web dashboard | Observability | Should | 🆕 New |
 | [F-36](#f-36--dashboard-demo-mode) | Dashboard demo mode | Observability | Could | 🆕 New |
@@ -80,7 +81,6 @@ can pick one, build it, tick the boxes and flip its status.
 | [F-28](#f-28--more-grid-data-providers) | More grid data providers | Grid data | Could | 🗓️ Planned |
 | [F-30](#f-30--runtime-learning) | Runtime learning | Planning | Could | 🗓️ Planned |
 | [F-31](#f-31--measured-energy-via-kepler) | Measured energy via Kepler | Carbon accounting | Could | 🗓️ Planned |
-| [F-33](#f-33--end-to-end-tests-on-kind) | End-to-end tests on kind | Tooling | Should | 🗓️ Planned |
 | [F-11](#f-11--keda-scaledjob-mode) | KEDA ScaledJob mode | Tooling | Could | 🗓️ Planned |
 
 ---
@@ -589,6 +589,34 @@ Enable with `--set alerts.enabled=true` (needs the Prometheus Operator CRDs).
 
 ---
 
+### F-33 · End-to-end tests on kind
+
+`🆕 New` · `Should` · `Tooling` · [`scripts/e2e-kind.sh`](../scripts/e2e-kind.sh) · [`sim/mock_api.py`](../src/carbon_scheduler/sim/mock_api.py) · [`tests/e2e/`](../tests/e2e)
+
+> **As a** maintainer, **I want** a real cluster test, **so that** RBAC, probes and patches are proven, not assumed.
+
+```bash
+make e2e          # needs Docker, kind, kubectl and Helm 3; the cluster is deleted afterwards
+KEEP_CLUSTER=1 make e2e   # keep the cluster for poking around
+```
+
+The `e2e` CI job runs [`scripts/e2e-kind.sh`](../scripts/e2e-kind.sh) after lint, tests and `helm lint` pass:
+build the image, create a kind cluster, deploy a **mock Energy-Charts API** (`carbon-sim mock-api`, from the
+same image), `helm install` the chart pointed at the mock, wait for `/readyz` through the API-server service
+proxy, then apply [`tests/e2e/job.yaml`](../tests/e2e/job.yaml). The mock serves a 20 % renewable share
+that steps up to 90 % 90 s after the controller first asks for the forecast, so the controller has to
+**hold** the Job (`planned-start`, `JobHeld`) and then **release** it (`spec.suspend=false`, `actual-start`,
+`JobReleased`, no `fallback-reason`). On failure the script prints the pods, Events, controller logs and
+`kubectl describe job`. Unit tests (`tests/unit/test_e2e_kind.py`) cover the mock API, the controller
+planning against it over real HTTP, and the script/manifest/CI wiring.
+
+**Acceptance criteria**
+- [x] CI job: create kind cluster, build image, `helm install`, wait for `/readyz`.
+- [x] Apply an example Job with a mocked forecast endpoint; assert `planned-start` is written and the Job is released.
+- [x] Assert `kubectl describe job` shows the `JobHeld` Event.
+
+---
+
 ### F-34 · Release pipeline
 
 `🆕 New` · `Should` · `Tooling` · [`.github/workflows/release.yml`](../.github/workflows/release.yml) · [`release.py`](../src/carbon_scheduler/release.py)
@@ -722,7 +750,6 @@ quadrantChart
     quadrant-4 Research
     F-21 Webhook: [0.48, 0.70]
     F-27 HA: [0.52, 0.52]
-    F-33 E2E: [0.50, 0.45]
     F-24 Spatial: [0.88, 0.86]
     F-25 Budgets: [0.82, 0.38]
     F-28 Providers: [0.70, 0.30]
@@ -765,19 +792,6 @@ Empty for now: every Wave NOW item has shipped. Pick the next item from Wave NEX
 - [ ] kopf peering (or a Lease-based lock) so only one replica patches Jobs.
 - [ ] `replicaCount: 2` in the chart works, with a PodDisruptionBudget.
 - [ ] Failover releases a due Job within 2 reconcile intervals.
-
----
-
-#### F-33 · End-to-end tests on kind
-
-`🗓️ Planned` · `Should` · Effort **M** · Impact **Medium**
-
-> **As a** maintainer, **I want** a real cluster test, **so that** RBAC, probes and patches are proven, not assumed.
-
-**Acceptance criteria**
-- [ ] CI job: create kind cluster, build image, `helm install`, wait for `/readyz`.
-- [ ] Apply an example Job with a mocked forecast endpoint; assert `planned-start` is written and the Job is released.
-- [ ] Assert `kubectl describe job` shows the `JobHeld` Event.
 
 ---
 

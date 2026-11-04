@@ -1,4 +1,4 @@
-.PHONY: help install lint typecheck test check demo showcase plan kind-demo docker media
+.PHONY: help install lint typecheck test check e2e demo showcase plan kind-demo docker media
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -16,6 +16,9 @@ test: ## Run the test suite with coverage
 	pytest
 
 check: lint typecheck test ## Everything CI runs on Python
+
+e2e: ## End-to-end test on a throwaway kind cluster (needs Docker, kind, kubectl, Helm)
+	./scripts/e2e-kind.sh
 
 demo: ## Open the dashboard against a simulated cluster (http://127.0.0.1:8080)
 	carbon-sim dashboard --port 8080

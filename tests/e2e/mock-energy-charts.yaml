@@ -1,0 +1,52 @@
+# Mock Energy-Charts API for the kind E2E test (F-33).
+# Runs `carbon-sim mock-api` from the controller image; scripts/e2e-kind.sh
+# replaces IMAGE_PLACEHOLDER with the image it just built.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mock-energy-charts
+  labels:
+    app: mock-energy-charts
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mock-energy-charts
+  template:
+    metadata:
+      labels:
+        app: mock-energy-charts
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: mock
+          image: IMAGE_PLACEHOLDER
+          imagePullPolicy: Never
+          command: ["carbon-sim", "mock-api", "--port", "8080", "--green-after", "90"]
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 2
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mock-energy-charts
+spec:
+  selector:
+    app: mock-energy-charts
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
