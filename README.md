@@ -98,12 +98,13 @@ The new `balanced` policy keeps 90 % of the maximum saving with 38 % less waitin
 | 🎮 | **Demo mode:** the same dashboard on a simulated cluster, `carbon-sim dashboard` | 🆕 |
 | ⌨️ | **`kubectl carbon` plugin:** `status`, `explain`, `release`, `forecast` | 🆕 |
 | 📈 | **Prometheus metrics, Grafana dashboard, `/healthz`, `/readyz`** | ✅ |
+| 🪣 | **KEDA ScaledJob mode:** `/keda/allowed-concurrency` turns grid greenness into a job count for KEDA's `metrics-api` scaler | 🆕 |
 | 🚨 | **PrometheusRule alert pack** with runbooks | 🆕 |
 | 🧪 | **Backtesting** on real or synthetic history, with a **self-contained HTML report** | ✅ 🆕 |
 | 🔮 | **`carbon-sim plan`:** dry-run a Job against the live forecast | ✅ |
 | 📦 | **Helm chart** with least-privilege RBAC, ServiceMonitor, alerts and Grafana dashboard | ✅ |
 | 🚀 | **Release pipeline:** a `v*` tag publishes a multi-arch image and an OCI Helm chart on GHCR | 🆕 |
-| 🗺️ | Admission webhook, HA, team budgets, KEDA mode and more | [Roadmap](docs/FEATURES.md#backlog) |
+| 🗺️ | Admission webhook, HA, team budgets and more | [Roadmap](docs/FEATURES.md#backlog) |
 
 👉 Each feature has a user story, acceptance criteria and tests in **[docs/FEATURES.md](docs/FEATURES.md)**.
 
@@ -282,7 +283,12 @@ Environment variables (Helm: `config.*` in [`values.yaml`](charts/carbon-schedul
 | `CARBON_EMISSION_FACTORS_FILE` | `config/emission_factors.yaml` | gCO₂/kWh per production type |
 | `CARBON_METRICS_PORT` | `9090` | `/`, `/api/state`, `/metrics`, `/healthz`, `/readyz` |
 | `CARBON_DASHBOARD_ENABLED` | `true` | Serve the web dashboard on the metrics port |
+| `CARBON_KEDA_ENABLED` | `false` | Serve `/keda/allowed-concurrency` for KEDA and keep the forecast fresh (Helm: `keda.enabled`) |
+| `CARBON_KEDA_MIN_CONCURRENCY` / `CARBON_KEDA_MAX_CONCURRENCY` | `0` / `10` | Jobs allowed when the grid is dirty / green; max is also the fail-open value |
+| `CARBON_KEDA_LOW_SHARE_PCT` / `CARBON_KEDA_HIGH_SHARE_PCT` | `40` / `80` | Renewable share band; linear in between |
 | `CARBON_LOG_LEVEL` / `CARBON_LOG_FORMAT` | `INFO` / `json` | Logging |
+
+KEDA: `--set keda.enabled=true`, then point a `ScaledJob` `metrics-api` trigger at `http://carbon-scheduler-metrics.<ns>.svc:9090/keda/allowed-concurrency` (see [`examples/keda-scaledjob.yaml`](examples/keda-scaledjob.yaml)).
 
 Alerts: `--set alerts.enabled=true` installs a [PrometheusRule](charts/carbon-scheduler/templates/prometheusrule.yaml) with five alerts. Runbooks are in [FEATURES.md](docs/FEATURES.md#f-32--prometheusrule-alert-pack).
 

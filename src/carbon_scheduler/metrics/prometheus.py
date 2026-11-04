@@ -115,6 +115,11 @@ API_LATENCY_SECONDS = Histogram(
     buckets=LATENCY_BUCKETS,
 )
 
+KEDA_ALLOWED_CONCURRENCY = Gauge(
+    "carbon_keda_allowed_concurrency",
+    "Allowed concurrency last returned to the KEDA metrics-api scaler (F-11)",
+)
+
 FORECAST_AGE_SECONDS = Gauge(
     "carbon_forecast_age_seconds",
     "Age of the current forecast data in seconds",
@@ -190,11 +195,17 @@ def is_ready() -> bool:
     return _ready.is_set()
 
 
-def make_app(registry: CollectorRegistry | None = None, dashboard: bool = True) -> Any:
+def make_app(
+    registry: CollectorRegistry | None = None,
+    dashboard: bool = True,
+    keda: bool = False,
+) -> Any:
     """Build a WSGI app serving /metrics, /healthz, /readyz and the dashboard.
 
     With ``dashboard`` enabled, ``/`` and ``/dashboard`` serve the web UI and
-    ``/api/state`` its JSON; every other path keeps serving Prometheus metrics.
+    ``/api/state`` its JSON. With ``keda`` enabled, ``/keda/allowed-concurrency``
+    serves the KEDA metrics-api payload (F-11). Every other path keeps serving
+    Prometheus metrics.
     """
     metrics_app = make_wsgi_app(registry if registry is not None else REGISTRY)
 
@@ -204,6 +215,12 @@ def make_app(registry: CollectorRegistry | None = None, dashboard: bool = True) 
             from carbon_scheduler.dashboard import web
 
             served = web.handle(environ, start_response)
+            if served is not None:
+                return served
+        if keda:
+            from carbon_scheduler.keda import scaler
+
+            served = scaler.handle(environ, start_response)
             if served is not None:
                 return served
         if path == "/healthz":
@@ -224,6 +241,7 @@ def setup_metrics(
     port: int = DEFAULT_METRICS_PORT,
     registry: CollectorRegistry | None = None,
     dashboard: bool = True,
+    keda: bool = False,
 ) -> None:
     """Start the HTTP server for metrics scraping and health probes.
 
@@ -233,8 +251,10 @@ def setup_metrics(
     Args:
         port: Port to expose metrics on. Defaults to 8000.
         registry: Optional custom registry. Uses default REGISTRY if not provided.
+        dashboard: Serve the web dashboard and ``/api/state``.
+        keda: Serve ``/keda/allowed-concurrency`` for KEDA (F-11).
     """
-    start_metrics_server(port, registry=registry, dashboard=dashboard)
+    start_metrics_server(port, registry=registry, dashboard=dashboard, keda=keda)
 
 
 def start_metrics_server(
@@ -242,12 +262,13 @@ def start_metrics_server(
     addr: str = "0.0.0.0",
     registry: CollectorRegistry | None = None,
     dashboard: bool = True,
+    keda: bool = False,
 ) -> WSGIServer:
     """Start the metrics/health/dashboard server in a daemon thread and return it."""
     server = make_server(
         addr,
         port,
-        make_app(registry, dashboard=dashboard),
+        make_app(registry, dashboard=dashboard, keda=keda),
         server_class=_ThreadingWSGIServer,
         handler_class=_QuietHandler,
     )
@@ -394,6 +415,15 @@ def record_api_request(
     API_REQUESTS.labels(endpoint=endpoint, status=status).inc()
     if latency_seconds is not None:
         API_LATENCY_SECONDS.labels(endpoint=endpoint).observe(latency_seconds)
+
+
+def update_keda_allowed_concurrency(value: int) -> None:
+    """Record the allowed concurrency last served to KEDA.
+
+    Args:
+        value: Number of Jobs KEDA may run right now.
+    """
+    KEDA_ALLOWED_CONCURRENCY.set(value)
 
 
 def update_forecast_age(seconds: float) -> None:

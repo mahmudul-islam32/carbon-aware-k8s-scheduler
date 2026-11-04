@@ -154,6 +154,25 @@ class ReplanDecision:
     annotations_to_set: dict[str, str]
 
 
+def grid_data_to_forecast(grid_data: GridData | None) -> Forecast | None:
+    """Convert Energy-Charts GridData to the planner's Forecast (None if there is none)."""
+    if grid_data is None or grid_data.forecast is None:
+        return None
+
+    forecast = grid_data.forecast
+    if not forecast.unix_seconds or not forecast.ren_share:
+        return None
+
+    points = [
+        ForecastPoint(
+            timestamp=datetime.fromtimestamp(ts, tz=UTC),
+            renewable_share_pct=share,
+        )
+        for ts, share in zip(forecast.unix_seconds, forecast.ren_share, strict=False)
+    ]
+    return Forecast(points=points, degraded=forecast.substitute)
+
+
 def _as_utc(value: datetime) -> datetime:
     """Treat naive datetimes as local time and convert to UTC (like the grid cache)."""
     return value.astimezone(UTC)
@@ -208,23 +227,7 @@ class JobScheduler:
 
     def _grid_data_to_forecast(self, grid_data: GridData | None) -> Forecast | None:
         """Convert GridData to Forecast for the planner."""
-        if grid_data is None or grid_data.forecast is None:
-            return None
-
-        forecast = grid_data.forecast
-        if not forecast.unix_seconds or not forecast.ren_share:
-            return None
-
-        points = []
-        for ts, share in zip(forecast.unix_seconds, forecast.ren_share, strict=False):
-            points.append(
-                ForecastPoint(
-                    timestamp=datetime.fromtimestamp(ts, tz=UTC),
-                    renewable_share_pct=share,
-                )
-            )
-
-        return Forecast(points=points, degraded=forecast.substitute)
+        return grid_data_to_forecast(grid_data)
 
     async def get_grid_data(self) -> GridData | None:
         """Fetch current grid data.

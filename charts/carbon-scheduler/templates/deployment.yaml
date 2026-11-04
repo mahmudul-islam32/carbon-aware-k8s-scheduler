@@ -47,6 +47,16 @@ spec:
               value: {{ .Values.config.maxReleasesPerMinute | quote }}
             - name: CARBON_DASHBOARD_ENABLED
               value: {{ .Values.dashboard.enabled | quote }}
+            - name: CARBON_KEDA_ENABLED
+              value: {{ .Values.keda.enabled | quote }}
+            - name: CARBON_KEDA_MIN_CONCURRENCY
+              value: {{ .Values.keda.minConcurrency | quote }}
+            - name: CARBON_KEDA_MAX_CONCURRENCY
+              value: {{ .Values.keda.maxConcurrency | quote }}
+            - name: CARBON_KEDA_LOW_SHARE_PCT
+              value: {{ .Values.keda.lowSharePct | quote }}
+            - name: CARBON_KEDA_HIGH_SHARE_PCT
+              value: {{ .Values.keda.highSharePct | quote }}
             - name: CARBON_MAX_DELAY
               value: {{ .Values.config.maxDelay | quote }}
             - name: CARBON_REPLAN_ENABLED

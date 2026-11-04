@@ -40,6 +40,7 @@ flowchart TB
 | [`controller`](../src/carbon_scheduler/controller) | kopf handlers for Job create/update, release timer with re-planning, annotation contract (incl. relative deadlines), Event posting, release staggering | F-01, F-02, F-05, F-12, F-14, F-15, F-20, F-22, F-26 |
 | [`metrics`](../src/carbon_scheduler/metrics) | Prometheus metrics plus the HTTP server for `/metrics`, `/healthz`, `/readyz` and the dashboard | F-07, F-13, F-19 |
 | [`dashboard`](../src/carbon_scheduler/dashboard) | In-memory state fed by the controller, `/api/state`, the single-page UI, and the demo cluster simulator | F-35, F-36 |
+| [`keda`](../src/carbon_scheduler/keda) | KEDA ScaledJob mode: background forecast refresher and `/keda/allowed-concurrency` for the `metrics-api` scaler | F-11 |
 | [`sim`](../src/carbon_scheduler/sim) | `carbon-sim` CLI: fetch or synthesise history, generate traces, backtest, HTML report, showcase, dry-run plan, demo dashboard | F-09, F-17, F-36, F-37, F-38 |
 | [`kubectl_plugin`](../src/carbon_scheduler/kubectl_plugin.py) | `kubectl carbon status / explain / release / forecast` | F-29 |
 

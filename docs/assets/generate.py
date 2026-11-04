@@ -98,7 +98,7 @@ LANES = [
         ("F-17", "Dry-run planner", "done"), ("F-18", "CI pipeline", "done"),
         ("F-29", "kubectl plugin", "new"), ("F-37", "HTML report & showcase", "new"),
         ("F-33", "E2E tests on kind", "planned"), ("F-34", "Release pipeline", "new"),
-        ("F-11", "KEDA mode", "planned")]),
+        ("F-11", "KEDA mode", "new")]),
 ]
 def feature_map():
     lw, gap, x0, y0, th, tg = 178, 12, 40, 150, 40, 8
@@ -151,7 +151,7 @@ WAVES = [
         ("F-27", "HA with leader election", "M"), ("F-25", "Team carbon budgets", "M"),
         ("F-28", "More grid data providers", "L"), ("F-30", "Runtime learning", "M")]),
     ("LATER", "Exploration · research track", "#7c3aed", [
-        ("F-11", "KEDA ScaledJob mode", "L"), ("F-24", "Spatial (multi-region) shifting", "L"),
+        ("F-24", "Spatial (multi-region) shifting", "L"),
         ("F-31", "Measured energy via Kepler", "L")]),
 ]
 EFFORT = {"S": "#16a34a", "M": "#d97706", "L": "#dc2626"}

@@ -11,6 +11,7 @@ from carbon_scheduler.metrics.prometheus import (
     JOB_DELAY_SECONDS,
     JOBS_HELD,
     JOBS_RELEASED,
+    KEDA_ALLOWED_CONCURRENCY,
     get_jobs_held_count,
     is_ready,
     record_api_request,
@@ -26,6 +27,7 @@ from carbon_scheduler.metrics.prometheus import (
     track_held_job,
     untrack_held_job,
     update_forecast_age,
+    update_keda_allowed_concurrency,
     update_renewable_share,
 )
 
@@ -38,6 +40,7 @@ __all__ = [
     "FALLBACK_RELEASES",
     # Additional metrics
     "JOBS_RELEASED",
+    "KEDA_ALLOWED_CONCURRENCY",
     "API_REQUESTS",
     "API_LATENCY_SECONDS",
     "FORECAST_AGE_SECONDS",
@@ -55,6 +58,7 @@ __all__ = [
     "update_renewable_share",
     "record_api_request",
     "update_forecast_age",
+    "update_keda_allowed_concurrency",
     "get_jobs_held_count",
     "reset_jobs_held",
     "track_held_job",
